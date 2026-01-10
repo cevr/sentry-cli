@@ -4,6 +4,8 @@ import { Console, Effect, Layer } from "effect"
 
 import { ConfigFile, SentryConfig } from "./config/index.js"
 import { SentryApi } from "./api/client.js"
+import { Browser } from "./services/browser.js"
+import { TokenProvider } from "./services/token-provider.js"
 
 // Commands
 import { whoamiCommand } from "./commands/whoami.js"
@@ -51,11 +53,15 @@ const SentryConfigLayer = Layer.provide(SentryConfig.layer, ConfigFileLayer)
 
 const ApiLayer = Layer.provide(SentryApi.layer, SentryConfigLayer)
 
+const TokenProviderLayer = Layer.provide(TokenProvider.live, Browser.layer)
+
 export const MainLayer = Layer.mergeAll(
   PlatformLayer,
   ConfigFileLayer,
   SentryConfigLayer,
-  ApiLayer
+  ApiLayer,
+  Browser.layer,
+  TokenProviderLayer
 )
 
 /**

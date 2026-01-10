@@ -1,6 +1,7 @@
 import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { ConfigFile, type ConfigData } from "../config/index.js"
+import { TokenProvider } from "../services/token-provider.js"
 
 const tokenOption = Options.text("token").pipe(
   Options.withAlias("t"),
@@ -39,16 +40,15 @@ export const loginCommand = Command.make(
       )
 
       // If no token provided, prompt for one
-      const accessToken = Option.getOrUndefined(token)
+      let accessToken = Option.getOrUndefined(token)
       if (!accessToken) {
-        yield* Console.log("To get a Sentry access token:")
-        yield* Console.log("1. Go to https://sentry.io/settings/account/api/auth-tokens/")
-        yield* Console.log("2. Create a new token with the required scopes")
-        yield* Console.log("")
-        yield* Console.log("Then run: sentry login --token YOUR_TOKEN")
-        yield* Console.log("")
-        yield* Console.log("Or set the SENTRY_ACCESS_TOKEN environment variable")
-        return
+        const tokenProvider = yield* TokenProvider
+        accessToken = yield* tokenProvider.promptForToken()
+
+        if (!accessToken) {
+          yield* Console.log("No token provided. Aborting.")
+          return
+        }
       }
 
       // Update config

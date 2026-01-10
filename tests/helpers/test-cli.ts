@@ -12,6 +12,8 @@ import { BunContext } from "@effect/platform-bun"
 import { ConfigFile, SentryConfig, type ConfigData } from "../../src/config/index.js"
 import { SentryApi } from "../../src/api/client.js"
 import { ApiError } from "../../src/errors/index.js"
+import { Browser } from "../../src/services/browser.js"
+import { TokenProvider } from "../../src/services/token-provider.js"
 import type { User, EventsResponse } from "../../src/api/types.js"
 import { cli } from "../../src/main.js"
 
@@ -428,7 +430,48 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
 export interface TestOptions {
   config?: MockConfigFileOptions
   api?: MockApiOptions
+  /** Token to return when TokenProvider.promptForToken is called */
+  promptedToken?: string
 }
+
+// ============================================================================
+// Mock Browser Service
+// ============================================================================
+
+const createMockBrowser = () =>
+  Layer.effect(
+    Browser,
+    Effect.gen(function* () {
+      const recorder = yield* CallRecorder
+
+      return Browser.of({
+        open: (url) =>
+          Effect.gen(function* () {
+            yield* recorder.record({ service: "Browser", method: "open", args: { url } })
+          }),
+      })
+    })
+  )
+
+// ============================================================================
+// Mock TokenProvider Service
+// ============================================================================
+
+const createMockTokenProvider = (token?: string) =>
+  Layer.effect(
+    TokenProvider,
+    Effect.gen(function* () {
+      const recorder = yield* CallRecorder
+
+      return TokenProvider.of({
+        promptForToken: () =>
+          Effect.gen(function* () {
+            yield* recorder.record({ service: "TokenProvider", method: "promptForToken", args: {} })
+            return token ?? ""
+          }),
+      })
+    })
+  )
 
 /**
  * Create test layer with all mocks
@@ -448,11 +491,21 @@ export const createTestLayer = (options: TestOptions = {}) => {
     Layer.provide(recorderLayer)
   )
 
+  const browserLayer = createMockBrowser().pipe(
+    Layer.provide(recorderLayer)
+  )
+
+  const tokenProviderLayer = createMockTokenProvider(options.promptedToken).pipe(
+    Layer.provide(recorderLayer)
+  )
+
   return Layer.mergeAll(
     recorderLayer,
     configFileLayer,
     sentryConfigLayer,
-    apiLayer
+    apiLayer,
+    browserLayer,
+    tokenProviderLayer
   )
 }
 

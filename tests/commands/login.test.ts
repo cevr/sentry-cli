@@ -114,13 +114,40 @@ describe("sentry login", () => {
     })
   )
 
-  it.effect("does not write config when no token provided", () =>
+  it.effect("prompts for token when not provided via flag", () =>
     Effect.gen(function* () {
       const { calls } = yield* runCli("login", {
         config: { initialConfig: {} },
+        promptedToken: "prompted-token-123",
       })
 
-      // Should not write when no token is provided
+      // Should call TokenProvider.promptForToken
+      expectCall(calls, "TokenProvider", "promptForToken")
+
+      // Should write config with the prompted token
+      expectSequence(calls, [
+        { service: "ConfigFile", method: "read" },
+        { service: "TokenProvider", method: "promptForToken" },
+        { service: "ConfigFile", method: "write" },
+      ])
+
+      const writeCall = expectCall(calls, "ConfigFile", "write")
+      const args = writeCall.args as { accessToken?: string }
+      expect(args.accessToken).toBe("prompted-token-123")
+    })
+  )
+
+  it.effect("does not write config when empty token prompted", () =>
+    Effect.gen(function* () {
+      const { calls } = yield* runCli("login", {
+        config: { initialConfig: {} },
+        promptedToken: "",  // Empty token
+      })
+
+      // Should call TokenProvider.promptForToken
+      expectCall(calls, "TokenProvider", "promptForToken")
+
+      // Should not write when empty token is provided
       expectNoCall(calls, "ConfigFile", "write")
     })
   )
