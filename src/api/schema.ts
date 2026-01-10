@@ -1,0 +1,653 @@
+/**
+ * Zod schemas for Sentry API response validation.
+ * Adapted from sentry-mcp.
+ */
+import { z } from "zod"
+
+export const ApiErrorSchema = z
+  .object({
+    detail: z.string(),
+  })
+  .passthrough()
+
+export const UserSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    name: z.string().nullable(),
+    email: z.string(),
+  })
+  .passthrough()
+
+export const UserRegionsSchema = z.object({
+  regions: z.array(
+    z.object({
+      name: z.string(),
+      url: z.string().url(),
+    })
+  ),
+})
+
+export const OrganizationSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    slug: z.string(),
+    name: z.string(),
+    links: z
+      .object({
+        regionUrl: z
+          .string()
+          .refine(
+            (value) => !value || z.string().url().safeParse(value).success,
+            {
+              message:
+                "Must be a valid URL or empty string (for self-hosted Sentry)",
+            }
+          )
+          .optional(),
+        organizationUrl: z.string().url(),
+      })
+      .optional(),
+  })
+  .passthrough()
+
+export const OrganizationListSchema = z.array(OrganizationSchema)
+
+export const TeamSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    slug: z.string(),
+    name: z.string(),
+  })
+  .passthrough()
+
+export const TeamListSchema = z.array(TeamSchema)
+
+export const ProjectSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    slug: z.string(),
+    name: z.string(),
+    platform: z.string().nullable().optional(),
+  })
+  .passthrough()
+
+export const ProjectListSchema = z.array(ProjectSchema)
+
+export const ClientKeySchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    name: z.string(),
+    dsn: z.object({
+      public: z.string(),
+    }),
+    isActive: z.boolean(),
+    dateCreated: z.string().datetime(),
+  })
+  .passthrough()
+
+export const ClientKeyListSchema = z.array(ClientKeySchema)
+
+export const ReleaseSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  version: z.string(),
+  shortVersion: z.string(),
+  dateCreated: z.string().datetime(),
+  dateReleased: z.string().datetime().nullable(),
+  firstEvent: z.string().datetime().nullable(),
+  lastEvent: z.string().datetime().nullable(),
+  newGroups: z.number(),
+  lastCommit: z
+    .object({
+      id: z.union([z.string(), z.number()]),
+      message: z.string(),
+      dateCreated: z.string().datetime(),
+      author: z.object({
+        name: z.string(),
+        email: z.string(),
+      }),
+    })
+    .nullable(),
+  lastDeploy: z
+    .object({
+      id: z.union([z.string(), z.number()]),
+      environment: z.string(),
+      dateStarted: z.string().datetime().nullable(),
+      dateFinished: z.string().datetime().nullable(),
+    })
+    .nullable(),
+  projects: z.array(ProjectSchema),
+})
+
+export const ReleaseListSchema = z.array(ReleaseSchema)
+
+export const TagSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  totalValues: z.number(),
+})
+
+export const TagListSchema = z.array(TagSchema)
+
+export const AssignedToSchema = z.union([
+  z.null(),
+  z.string(),
+  z
+    .object({
+      type: z.enum(["user", "team"]),
+      id: z.union([z.string(), z.number()]),
+      name: z.string(),
+      email: z.string().optional(),
+    })
+    .passthrough(),
+])
+
+export const IssueSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    shortId: z.string(),
+    title: z.string(),
+    firstSeen: z.string().datetime(),
+    lastSeen: z.string().datetime(),
+    count: z.union([z.string(), z.number()]),
+    userCount: z.union([z.string(), z.number()]),
+    permalink: z.string().url(),
+    project: ProjectSchema,
+    platform: z.string().nullable().optional(),
+    status: z.string(),
+    substatus: z.string().nullable().optional(),
+    culprit: z.string(),
+    type: z.union([
+      z.literal("error"),
+      z.literal("transaction"),
+      z.literal("generic"),
+      z.unknown(),
+    ]),
+    assignedTo: AssignedToSchema.optional(),
+    issueType: z.string().optional(),
+    issueCategory: z.string().optional(),
+    metadata: z
+      .object({
+        title: z.string().nullable().optional(),
+        location: z.string().nullable().optional(),
+        value: z.string().nullable().optional(),
+      })
+      .optional(),
+  })
+  .passthrough()
+
+export const IssueListSchema = z.array(IssueSchema)
+
+export const FrameInterface = z
+  .object({
+    filename: z.string().nullable(),
+    function: z.string().nullable(),
+    lineNo: z.number().nullable(),
+    colNo: z.number().nullable(),
+    absPath: z.string().nullable(),
+    module: z.string().nullable(),
+    context: z.array(z.tuple([z.number(), z.string()])),
+    inApp: z.boolean().optional(),
+    vars: z.record(z.string(), z.unknown()).optional(),
+  })
+  .partial()
+
+export const ExceptionInterface = z
+  .object({
+    mechanism: z
+      .object({
+        type: z.string().nullable(),
+        handled: z.boolean().nullable(),
+      })
+      .partial(),
+    type: z.string().nullable(),
+    value: z.string().nullable(),
+    stacktrace: z.object({
+      frames: z.array(FrameInterface),
+    }),
+  })
+  .partial()
+
+export const ErrorEntrySchema = z
+  .object({
+    values: z.array(ExceptionInterface.optional()),
+    value: ExceptionInterface.nullable().optional(),
+  })
+  .partial()
+
+export const RequestEntrySchema = z
+  .object({
+    method: z.string().nullable(),
+    url: z.string().url().nullable(),
+  })
+  .partial()
+
+export const MessageEntrySchema = z
+  .object({
+    formatted: z.string().nullable(),
+    message: z.string().nullable(),
+    params: z.array(z.unknown()).optional(),
+  })
+  .partial()
+
+export const ThreadEntrySchema = z
+  .object({
+    id: z.number().nullable(),
+    name: z.string().nullable(),
+    current: z.boolean().nullable(),
+    crashed: z.boolean().nullable(),
+    state: z.string().nullable(),
+    stacktrace: z
+      .object({
+        frames: z.array(FrameInterface),
+      })
+      .nullable(),
+  })
+  .partial()
+
+export const ThreadsEntrySchema = z
+  .object({
+    values: z.array(ThreadEntrySchema),
+  })
+  .partial()
+
+export const BreadcrumbSchema = z
+  .object({
+    timestamp: z.string().nullable(),
+    type: z.string().nullable(),
+    category: z.string().nullable(),
+    level: z.string().nullable(),
+    message: z.string().nullable(),
+    data: z.record(z.string(), z.unknown()).nullable(),
+  })
+  .partial()
+
+export const BreadcrumbsEntrySchema = z
+  .object({
+    values: z.array(BreadcrumbSchema),
+  })
+  .partial()
+
+const BaseEventSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  message: z.string().nullable(),
+  platform: z.string().nullable().optional(),
+  type: z.unknown(),
+  entries: z.array(
+    z.union([
+      z.object({
+        type: z.literal("exception"),
+        data: ErrorEntrySchema,
+      }),
+      z.object({
+        type: z.literal("message"),
+        data: MessageEntrySchema,
+      }),
+      z.object({
+        type: z.literal("threads"),
+        data: ThreadsEntrySchema,
+      }),
+      z.object({
+        type: z.literal("request"),
+        data: RequestEntrySchema,
+      }),
+      z.object({
+        type: z.literal("breadcrumbs"),
+        data: BreadcrumbsEntrySchema,
+      }),
+      z.object({
+        type: z.literal("spans"),
+        data: z.unknown(),
+      }),
+      z.object({
+        type: z.string(),
+        data: z.unknown(),
+      }),
+    ])
+  ),
+  contexts: z
+    .record(
+      z.string(),
+      z
+        .object({
+          type: z.union([
+            z.literal("default"),
+            z.literal("runtime"),
+            z.literal("os"),
+            z.literal("trace"),
+            z.unknown(),
+          ]),
+        })
+        .passthrough()
+    )
+    .optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
+  tags: z
+    .array(
+      z.object({
+        key: z.string(),
+        value: z.string().nullable(),
+      })
+    )
+    .optional(),
+  _meta: z.unknown().optional(),
+  dateReceived: z.string().datetime().optional(),
+})
+
+export const ErrorEventSchema = BaseEventSchema.omit({
+  type: true,
+}).extend({
+  type: z.literal("error"),
+  culprit: z.string().nullable(),
+  dateCreated: z.string().datetime(),
+})
+
+export const DefaultEventSchema = BaseEventSchema.omit({
+  type: true,
+}).extend({
+  type: z.literal("default"),
+  culprit: z.string().nullable().optional(),
+  dateCreated: z.string().datetime(),
+})
+
+export const TransactionEventSchema = BaseEventSchema.omit({
+  type: true,
+}).extend({
+  type: z.literal("transaction"),
+  occurrence: z
+    .object({
+      id: z.string().optional(),
+      projectId: z.number().optional(),
+      eventId: z.string().optional(),
+      fingerprint: z.array(z.string()).optional(),
+      issueTitle: z.string(),
+      subtitle: z.string().optional(),
+      resourceId: z.string().nullable().optional(),
+      evidenceData: z.record(z.string(), z.any()).optional(),
+      evidenceDisplay: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: z.string(),
+            important: z.boolean().optional(),
+          })
+        )
+        .optional(),
+      type: z.number().optional(),
+      detectionTime: z.number().optional(),
+      level: z.string().optional(),
+      culprit: z.string().nullable(),
+      priority: z.number().optional(),
+      assignee: z.string().nullable().optional(),
+    })
+    .nullish(),
+})
+
+export const EvidenceDisplaySchema = z.object({
+  name: z.string(),
+  value: z.string(),
+  important: z.boolean(),
+})
+
+export const OccurrenceSchema = z
+  .object({
+    id: z.string(),
+    projectId: z.number(),
+    eventId: z.string(),
+    fingerprint: z.array(z.string()),
+    issueTitle: z.string(),
+    subtitle: z.string().optional(),
+    resourceId: z.string().nullable().optional(),
+    evidenceData: z.record(z.string(), z.unknown()).optional(),
+    evidenceDisplay: z.array(EvidenceDisplaySchema).optional(),
+    type: z.number(),
+    detectionTime: z.number().optional(),
+    level: z.string().optional(),
+    culprit: z.string().optional(),
+    priority: z.number().optional(),
+    assignee: z.string().nullable().optional(),
+  })
+  .passthrough()
+
+export const GenericEventSchema = BaseEventSchema.omit({
+  type: true,
+}).extend({
+  type: z.literal("generic"),
+  culprit: z.string().nullable().optional(),
+  dateCreated: z.string().datetime(),
+  occurrence: OccurrenceSchema.optional(),
+})
+
+export const UnknownEventSchema = BaseEventSchema.omit({
+  type: true,
+}).extend({
+  type: z.unknown(),
+})
+
+export const EventSchema = z.union([
+  ErrorEventSchema,
+  DefaultEventSchema,
+  TransactionEventSchema,
+  GenericEventSchema,
+  UnknownEventSchema,
+])
+
+export const EventListSchema = z.array(EventSchema)
+
+export const EventsResponseSchema = z.object({
+  data: z.array(z.unknown()),
+  meta: z
+    .object({
+      fields: z.record(z.string(), z.string()),
+    })
+    .passthrough(),
+})
+
+export const ErrorsSearchResponseSchema = EventsResponseSchema.extend({
+  data: z.array(
+    z.object({
+      issue: z.string(),
+      "issue.id": z.union([z.string(), z.number()]),
+      project: z.string(),
+      title: z.string(),
+      "count()": z.number(),
+      "last_seen()": z.string(),
+    })
+  ),
+})
+
+export const SpansSearchResponseSchema = EventsResponseSchema.extend({
+  data: z.array(
+    z.object({
+      id: z.string(),
+      trace: z.string(),
+      "span.op": z.string(),
+      "span.description": z.string(),
+      "span.duration": z.number(),
+      transaction: z.string(),
+      project: z.string(),
+      timestamp: z.string(),
+    })
+  ),
+})
+
+export const AutofixRunSchema = z
+  .object({
+    run_id: z.union([z.string(), z.number()]),
+  })
+  .passthrough()
+
+const AutofixStatusSchema = z.enum([
+  "PENDING",
+  "PROCESSING",
+  "IN_PROGRESS",
+  "NEED_MORE_INFORMATION",
+  "COMPLETED",
+  "FAILED",
+  "ERROR",
+  "CANCELLED",
+  "WAITING_FOR_USER_RESPONSE",
+])
+
+const AutofixRunStepBaseSchema = z.object({
+  type: z.string(),
+  key: z.string(),
+  index: z.number(),
+  status: AutofixStatusSchema,
+  title: z.string(),
+  output_stream: z.string().nullable(),
+  progress: z.array(
+    z.object({
+      data: z.unknown().nullable(),
+      message: z.string(),
+      timestamp: z.string(),
+      type: z.enum(["INFO", "WARNING", "ERROR"]),
+    })
+  ),
+})
+
+export const AutofixRunStepDefaultSchema = AutofixRunStepBaseSchema.extend({
+  type: z.literal("default"),
+  insights: z
+    .array(
+      z.object({
+        change_diff: z.unknown().nullable(),
+        generated_at_memory_index: z.number(),
+        insight: z.string(),
+        justification: z.string(),
+        type: z.literal("insight"),
+      })
+    )
+    .nullable(),
+}).passthrough()
+
+export const AutofixRunStepRootCauseAnalysisSchema =
+  AutofixRunStepBaseSchema.extend({
+    type: z.literal("root_cause_analysis"),
+    causes: z.array(
+      z.object({
+        description: z.string(),
+        id: z.number(),
+        root_cause_reproduction: z.array(
+          z.object({
+            code_snippet_and_analysis: z.string(),
+            is_most_important_event: z.boolean(),
+            relevant_code_file: z
+              .object({
+                file_path: z.string(),
+                repo_name: z.string(),
+              })
+              .nullable(),
+            timeline_item_type: z.string(),
+            title: z.string(),
+          })
+        ),
+      })
+    ),
+  }).passthrough()
+
+export const AutofixRunStepSolutionSchema = AutofixRunStepBaseSchema.extend({
+  type: z.literal("solution"),
+  solution: z.array(
+    z.object({
+      code_snippet_and_analysis: z.string().nullable(),
+      is_active: z.boolean(),
+      is_most_important_event: z.boolean(),
+      relevant_code_file: z.null(),
+      timeline_item_type: z.union([
+        z.literal("internal_code"),
+        z.literal("repro_test"),
+      ]),
+      title: z.string(),
+    })
+  ),
+}).passthrough()
+
+export const AutofixRunStepSchema = z.union([
+  AutofixRunStepDefaultSchema,
+  AutofixRunStepRootCauseAnalysisSchema,
+  AutofixRunStepSolutionSchema,
+  AutofixRunStepBaseSchema.passthrough(),
+])
+
+export const AutofixRunStateSchema = z.object({
+  autofix: z
+    .object({
+      run_id: z.number(),
+      request: z.unknown(),
+      updated_at: z.string(),
+      status: AutofixStatusSchema,
+      steps: z.array(AutofixRunStepSchema),
+    })
+    .passthrough()
+    .nullable(),
+})
+
+export const EventAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  size: z.number(),
+  mimetype: z.string(),
+  dateCreated: z.string().datetime(),
+  sha1: z.string(),
+  headers: z.record(z.string(), z.string()).optional(),
+})
+
+export const EventAttachmentListSchema = z.array(EventAttachmentSchema)
+
+export const TraceMetaSchema = z.object({
+  logs: z.number(),
+  errors: z.number(),
+  performance_issues: z.number(),
+  span_count: z.number(),
+  transaction_child_count_map: z.array(
+    z.object({
+      "transaction.event_id": z.string().nullable(),
+      "count()": z.number(),
+    })
+  ),
+  span_count_map: z.record(z.string(), z.number()),
+})
+
+export const TraceSpanSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    children: z.array(TraceSpanSchema),
+    errors: z.array(z.any()),
+    occurrences: z.array(z.any()),
+    event_id: z.string(),
+    transaction_id: z.string(),
+    project_id: z.union([z.string(), z.number()]),
+    project_slug: z.string(),
+    profile_id: z.string(),
+    profiler_id: z.string(),
+    parent_span_id: z.string().nullable(),
+    start_timestamp: z.number(),
+    end_timestamp: z.number(),
+    measurements: z.record(z.string(), z.number()).optional(),
+    duration: z.number(),
+    transaction: z.string(),
+    is_transaction: z.boolean(),
+    description: z.string(),
+    sdk_name: z.string(),
+    op: z.string(),
+    name: z.string(),
+    event_type: z.string(),
+    additional_attributes: z.record(z.string(), z.any()),
+  })
+)
+
+export const TraceIssueSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).optional(),
+    issue_id: z.union([z.string(), z.number()]).optional(),
+    project_id: z.union([z.string(), z.number()]).optional(),
+    project_slug: z.string().optional(),
+    title: z.string().optional(),
+    culprit: z.string().optional(),
+    type: z.string().optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+  })
+  .passthrough()
+
+export const TraceSchema = z.array(z.union([TraceSpanSchema, TraceIssueSchema]))

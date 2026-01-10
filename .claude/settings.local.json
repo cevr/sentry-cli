@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(repo-explorer)",
+      "Skill(effect)",
+      "Bash(effect-solutions show cli)",
+      "Bash(bun run test:*)",
+      "Bash(wc:*)",
+      "Bash(effect-solutions list:*)",
+      "Bash(effect-solutions show:*)",
+      "Bash(bun add:*)",
+      "Bash(bunx effect-language-service patch:*)",
+      "Bash(bun run typecheck:*)"
+    ]
+  }
+}

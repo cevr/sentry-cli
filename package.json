@@ -1,0 +1,29 @@
+{
+  "name": "sentry-cli-effect",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run bin/sentry.ts",
+    "build": "bun build bin/sentry.ts --compile --outfile bin/sentry",
+    "install:global": "ln -sf $(pwd)/bin/sentry $(bun pm bin -g)/sentry",
+    "uninstall:global": "rm -f $(bun pm bin -g)/sentry",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "effect-language-service patch"
+  },
+  "dependencies": {
+    "@effect/cli": "^0.73.0",
+    "@effect/platform": "^0.94.1",
+    "@effect/platform-bun": "^0.87.0",
+    "effect": "^3.19.14",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.64.1",
+    "@effect/vitest": "^0.27.0",
+    "@types/bun": "latest",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.16"
+  }
+}
