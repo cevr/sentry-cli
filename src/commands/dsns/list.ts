@@ -1,12 +1,9 @@
-import { Command, Options } from "@effect/cli"
-import { Console, Effect } from "effect"
+import { Command } from "@effect/cli"
+import { Console, Effect, Layer } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
-
-const projectOption = Options.text("project").pipe(
-  Options.withAlias("p"),
-  Options.withDescription("Project slug")
-)
+import { OrgService } from "../../services/org-service.js"
+import { ProjectService } from "../../services/project-service.js"
+import { orgOption, projectOption } from "../shared.js"
 
 export const dsnsListCommand = Command.make(
   "list",
@@ -14,11 +11,12 @@ export const dsnsListCommand = Command.make(
   ({ org, project }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
+      const projectSlug = yield* (yield* ProjectService).get()
 
       const keys = yield* api.listClientKeys({
         organizationSlug,
-        projectSlug: project,
+        projectSlug,
       })
 
       if (keys.length === 0) {
@@ -26,7 +24,7 @@ export const dsnsListCommand = Command.make(
         return
       }
 
-      yield* Console.log(`DSNs for ${organizationSlug}/${project}:`)
+      yield* Console.log(`DSNs for ${organizationSlug}/${projectSlug}:`)
       yield* Console.log("")
 
       for (const key of keys) {
@@ -36,5 +34,12 @@ export const dsnsListCommand = Command.make(
         yield* Console.log(`    Created: ${key.dateCreated}`)
         yield* Console.log("")
       }
-    })
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          OrgService.make(org),
+          Layer.provide(ProjectService.make(project), OrgService.make(org))
+        )
+      )
+    )
 ).pipe(Command.withDescription("List DSNs for a project"))

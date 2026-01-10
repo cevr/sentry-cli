@@ -1,7 +1,8 @@
 import { Command } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, queryOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption, queryOption } from "../shared.js"
 
 export const teamsListCommand = Command.make(
   "list",
@@ -9,7 +10,7 @@ export const teamsListCommand = Command.make(
   ({ org, query }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       const teams = yield* api.listTeams(organizationSlug, {
         query: Option.getOrUndefined(query),
@@ -33,5 +34,5 @@ export const teamsListCommand = Command.make(
       if (teams.length === 25) {
         yield* Console.log("(Showing max 25 results. Use --query to filter.)")
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("List teams in an organization"))

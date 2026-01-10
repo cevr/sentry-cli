@@ -1,12 +1,9 @@
 import { Command, Options } from "@effect/cli"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, Layer, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
-
-const projectOption = Options.text("project").pipe(
-  Options.withAlias("p"),
-  Options.withDescription("Project slug")
-)
+import { OrgService } from "../../services/org-service.js"
+import { ProjectService } from "../../services/project-service.js"
+import { orgOption, projectOption } from "../shared.js"
 
 const nameOption = Options.text("name").pipe(
   Options.withAlias("n"),
@@ -20,11 +17,12 @@ export const dsnsCreateCommand = Command.make(
   ({ org, project, name }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
+      const projectSlug = yield* (yield* ProjectService).get()
 
       const key = yield* api.createClientKey({
         organizationSlug,
-        projectSlug: project,
+        projectSlug,
         name: Option.getOrUndefined(name) ?? "CLI Generated Key",
       })
 
@@ -34,5 +32,12 @@ export const dsnsCreateCommand = Command.make(
       yield* Console.log("")
       yield* Console.log("Add this to your SDK configuration:")
       yield* Console.log(`  SENTRY_DSN=${key.dsn.public}`)
-    })
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          OrgService.make(org),
+          Layer.provide(ProjectService.make(project), OrgService.make(org))
+        )
+      )
+    )
 ).pipe(Command.withDescription("Create a new DSN"))

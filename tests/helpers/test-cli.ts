@@ -14,6 +14,9 @@ import { SentryApi } from "../../src/api/client.js"
 import { ApiError } from "../../src/errors/index.js"
 import { Browser } from "../../src/services/browser.js"
 import { TokenProvider } from "../../src/services/token-provider.js"
+import { OrgService } from "../../src/services/org-service.js"
+import { ProjectService } from "../../src/services/project-service.js"
+import { TeamService } from "../../src/services/team-service.js"
 import type { User, EventsResponse } from "../../src/api/types.js"
 import { cli } from "../../src/main.js"
 
@@ -432,6 +435,12 @@ export interface TestOptions {
   api?: MockApiOptions
   /** Token to return when TokenProvider.promptForToken is called */
   promptedToken?: string
+  /** Default org for test (for OrgService) */
+  testOrg?: string
+  /** Default project for test (for ProjectService) */
+  testProject?: string
+  /** Default team for test (for TeamService) */
+  testTeam?: string
 }
 
 // ============================================================================
@@ -499,13 +508,21 @@ export const createTestLayer = (options: TestOptions = {}) => {
     Layer.provide(recorderLayer)
   )
 
+  // Test service implementations - return fixed values without prompting
+  const orgServiceLayer = OrgService.test(options.testOrg ?? options.config?.initialConfig?.defaultOrg ?? "test-org")
+  const projectServiceLayer = ProjectService.test(options.testProject ?? options.config?.initialConfig?.defaultProject ?? "test-project")
+  const teamServiceLayer = TeamService.test(options.testTeam ?? "test-team")
+
   return Layer.mergeAll(
     recorderLayer,
     configFileLayer,
     sentryConfigLayer,
     apiLayer,
     browserLayer,
-    tokenProviderLayer
+    tokenProviderLayer,
+    orgServiceLayer,
+    projectServiceLayer,
+    teamServiceLayer
   )
 }
 

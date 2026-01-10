@@ -1,7 +1,8 @@
 import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, projectOption, limitOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption, projectOption, limitOption } from "../shared.js"
 
 const queryOption = Options.text("query").pipe(
   Options.withAlias("q"),
@@ -33,7 +34,7 @@ export const eventsSearchCommand = Command.make(
   ({ org, project, query, dataset, period, limit }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       // Default fields based on dataset
       let fields: string[]
@@ -102,5 +103,5 @@ export const eventsSearchCommand = Command.make(
       if (data.length === limit) {
         yield* Console.log(`(Showing ${limit} results. Use --limit to see more.)`)
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Search events"))

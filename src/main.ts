@@ -72,6 +72,12 @@ const handleError = (error: unknown): Effect.Effect<void> =>
     if (typeof error === "object" && error !== null && "_tag" in error) {
       const tagged = error as { _tag: string; message?: string; status?: number; details?: unknown }
       switch (tagged._tag) {
+        // CLI framework errors - already printed by @effect/cli, don't re-print
+        case "CommandMismatch":
+        case "ValidationError":
+        case "ShowHelp":
+        case "ShowHelpText":
+          return
         case "ApiError":
           yield* Console.error(`Error: ${tagged.message}`)
           if (tagged.status) {
@@ -93,8 +99,14 @@ const handleError = (error: unknown): Effect.Effect<void> =>
           return
       }
     }
-    // For CLI validation errors and other errors
-    yield* Console.error(`${String(error)}`)
+    // For other errors
+    if (error instanceof Error) {
+      yield* Console.error(error.message)
+    } else if (typeof error === "object" && error !== null && "message" in error) {
+      yield* Console.error(String((error as { message: unknown }).message))
+    } else {
+      yield* Console.error(String(error))
+    }
   })
 
 export const runCli = (args: ReadonlyArray<string>) =>

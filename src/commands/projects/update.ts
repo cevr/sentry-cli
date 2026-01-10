@@ -1,7 +1,8 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption } from "../shared.js"
 
 const nameOption = Options.text("name").pipe(
   Options.withAlias("n"),
@@ -37,7 +38,7 @@ export const projectsUpdateCommand = Command.make(
   ({ org, name, slug, platform, project }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       const nameValue = Option.getOrUndefined(name)
       const slugValue = Option.getOrUndefined(slug)
@@ -62,5 +63,5 @@ export const projectsUpdateCommand = Command.make(
       if (updated.platform) {
         yield* Console.log(`  Platform: ${updated.platform}`)
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Update a project"))

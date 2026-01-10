@@ -1,7 +1,8 @@
 import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, projectOption, limitOption, requireOrg, resolveProject } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption, projectOption, limitOption, resolveProject } from "../shared.js"
 
 const queryOption = Options.text("query").pipe(
   Options.withAlias("q"),
@@ -26,7 +27,7 @@ export const issuesSearchCommand = Command.make(
   ({ org, project, query, sort, limit }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
       const projectSlug = yield* resolveProject(project)
 
       const issues = yield* api.listIssues({
@@ -54,5 +55,5 @@ export const issuesSearchCommand = Command.make(
         yield* Console.log(`    URL: ${issue.permalink}`)
         yield* Console.log("")
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Search for issues"))

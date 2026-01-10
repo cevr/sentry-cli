@@ -1,14 +1,11 @@
 import { Args, Command, Options } from "@effect/cli"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, Layer, Option } from "effect"
 import { FileSystem } from "@effect/platform"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { ProjectService } from "../../services/project-service.js"
+import { orgOption, projectOption } from "../shared.js"
 import { ApiError } from "../../errors/index.js"
-
-const projectOption = Options.text("project").pipe(
-  Options.withAlias("p"),
-  Options.withDescription("Project slug")
-)
 
 const outputOption = Options.file("output").pipe(
   Options.withAlias("o"),
@@ -30,11 +27,12 @@ export const eventsAttachmentListCommand = Command.make(
   ({ org, project, event }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
+      const projectSlug = yield* (yield* ProjectService).get()
 
       const attachments = yield* api.listEventAttachments({
         organizationSlug,
-        projectSlug: project,
+        projectSlug,
         eventId: event,
       })
 
@@ -55,7 +53,14 @@ export const eventsAttachmentListCommand = Command.make(
         yield* Console.log(`    Created: ${attachment.dateCreated}`)
         yield* Console.log("")
       }
-    })
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          OrgService.make(org),
+          Layer.provide(ProjectService.make(project), OrgService.make(org))
+        )
+      )
+    )
 ).pipe(Command.withDescription("List attachments for an event"))
 
 export const eventsAttachmentDownloadCommand = Command.make(
@@ -65,13 +70,14 @@ export const eventsAttachmentDownloadCommand = Command.make(
     Effect.gen(function* () {
       const api = yield* SentryApi
       const fs = yield* FileSystem.FileSystem
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
+      const projectSlug = yield* (yield* ProjectService).get()
 
       yield* Console.log(`Downloading attachment ${attachment}...`)
 
       const result = yield* api.getEventAttachment({
         organizationSlug,
-        projectSlug: project,
+        projectSlug,
         eventId: event,
         attachmentId: attachment,
       })
@@ -93,7 +99,14 @@ export const eventsAttachmentDownloadCommand = Command.make(
       yield* Console.log(`Saved to: ${outputPath}`)
       yield* Console.log(`  Size: ${result.attachment.size} bytes`)
       yield* Console.log(`  MIME: ${result.attachment.mimetype}`)
-    })
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          OrgService.make(org),
+          Layer.provide(ProjectService.make(project), OrgService.make(org))
+        )
+      )
+    )
 ).pipe(Command.withDescription("Download an event attachment"))
 
 export const eventsAttachmentsCommand = Command.make("attachments", {}).pipe(

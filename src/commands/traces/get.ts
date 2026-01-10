@@ -1,7 +1,8 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption } from "../shared.js"
 
 const limitOption = Options.integer("limit").pipe(
   Options.withAlias("l"),
@@ -19,7 +20,7 @@ export const tracesGetCommand = Command.make(
   ({ org, limit, trace }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       // Get trace metadata
       const meta = yield* api.getTraceMeta({
@@ -117,5 +118,5 @@ export const tracesGetCommand = Command.make(
           yield* Console.log(`... and ${traceData.length - 5} more root items`)
         }
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Get trace details"))

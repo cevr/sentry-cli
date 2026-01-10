@@ -1,7 +1,8 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, limitOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption, limitOption } from "../shared.js"
 
 const queryOption = Options.text("query").pipe(
   Options.withAlias("q"),
@@ -24,7 +25,7 @@ export const issuesEventsCommand = Command.make(
   ({ org, query, period, limit, issue }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       const events = yield* api.listEventsForIssue({
         organizationSlug,
@@ -63,5 +64,5 @@ export const issuesEventsCommand = Command.make(
       if (events.length === limit) {
         yield* Console.log(`(Showing ${limit} results. Use --limit to see more.)`)
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("List events for an issue"))

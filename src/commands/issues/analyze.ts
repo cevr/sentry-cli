@@ -2,7 +2,8 @@ import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
 import type { AutofixRunStepDefault, AutofixRunStepRootCauseAnalysis } from "../../api/types.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption } from "../shared.js"
 
 const instructionOption = Options.text("instruction").pipe(
   Options.withAlias("i"),
@@ -20,7 +21,7 @@ export const issuesAnalyzeCommand = Command.make(
   ({ org, instruction, issue }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       yield* Console.log(`Starting Seer analysis for issue ${issue}...`)
 
@@ -111,5 +112,5 @@ export const issuesAnalyzeCommand = Command.make(
         "Analysis is taking longer than expected. Check Sentry UI for results."
       )
       yield* Console.log(api.getIssueUrl(organizationSlug, issue))
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Analyze issue with Seer AI"))

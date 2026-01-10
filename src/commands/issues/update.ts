@@ -1,7 +1,8 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption } from "../shared.js"
 
 const statusOption = Options.choice("status", [
   "resolved",
@@ -29,7 +30,7 @@ export const issuesUpdateCommand = Command.make(
   ({ org, status, assign, issue }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       const statusValue = Option.getOrUndefined(status)
       const assignValue = Option.getOrUndefined(assign)
@@ -55,5 +56,5 @@ export const issuesUpdateCommand = Command.make(
             : updated.assignedTo.name
         yield* Console.log(`  Assigned to: ${assigned}`)
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Update an issue"))

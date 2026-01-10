@@ -1,7 +1,8 @@
 import { Command } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, projectOption, queryOption, requireOrg, resolveProject } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption, projectOption, queryOption, resolveProject } from "../shared.js"
 
 export const releasesListCommand = Command.make(
   "list",
@@ -9,7 +10,7 @@ export const releasesListCommand = Command.make(
   ({ org, project, query }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
       const projectSlug = yield* resolveProject(project)
 
       const releases = yield* api.listReleases({
@@ -52,5 +53,5 @@ export const releasesListCommand = Command.make(
         yield* Console.log(`    Projects: ${projectNames}`)
         yield* Console.log("")
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("List releases"))

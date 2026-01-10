@@ -1,7 +1,8 @@
 import { Args, Command } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
+import { OrgService } from "../../services/org-service.js"
+import { orgOption } from "../shared.js"
 
 const issueArg = Args.text({ name: "issue-id" }).pipe(
   Args.withDescription("Issue ID (short ID like PROJ-123 or numeric)")
@@ -13,7 +14,7 @@ export const issuesGetCommand = Command.make(
   ({ org, issue }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
 
       const issueData = yield* api.getIssue({
         organizationSlug,
@@ -90,5 +91,5 @@ export const issuesGetCommand = Command.make(
           }
         }
       }
-    })
+    }).pipe(Effect.provide(OrgService.make(org)))
 ).pipe(Command.withDescription("Get issue details"))

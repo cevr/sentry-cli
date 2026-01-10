@@ -1,12 +1,9 @@
 import { Args, Command, Options } from "@effect/cli"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, Layer, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import { orgOption, requireOrg } from "../shared.js"
-
-const teamOption = Options.text("team").pipe(
-  Options.withAlias("t"),
-  Options.withDescription("Team slug")
-)
+import { OrgService } from "../../services/org-service.js"
+import { TeamService } from "../../services/team-service.js"
+import { orgOption, teamOption } from "../shared.js"
 
 const platformOption = Options.text("platform").pipe(
   Options.withAlias("p"),
@@ -24,11 +21,12 @@ export const projectsCreateCommand = Command.make(
   ({ org, team, platform, name }) =>
     Effect.gen(function* () {
       const api = yield* SentryApi
-      const organizationSlug = yield* requireOrg(org)
+      const organizationSlug = yield* (yield* OrgService).get()
+      const teamSlug = yield* (yield* TeamService).get()
 
       const project = yield* api.createProject({
         organizationSlug,
-        teamSlug: team,
+        teamSlug,
         name,
         platform: Option.getOrUndefined(platform) ?? null,
       })
@@ -39,5 +37,12 @@ export const projectsCreateCommand = Command.make(
       if (project.platform) {
         yield* Console.log(`  Platform: ${project.platform}`)
       }
-    })
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          OrgService.make(org),
+          Layer.provide(TeamService.make(team), OrgService.make(org))
+        )
+      )
+    )
 ).pipe(Command.withDescription("Create a new project"))
