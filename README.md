@@ -1,4 +1,4 @@
-# sentry-cli-effect
+# sentry-cli
 
 A modern CLI for interacting with [Sentry](https://sentry.io) built with [Effect](https://effect.website) TypeScript.
 
@@ -11,8 +11,8 @@ A modern CLI for interacting with [Sentry](https://sentry.io) built with [Effect
 ### From Source
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/sentry-cli-effect.git
-cd sentry-cli-effect
+git clone https://github.com/cevr/sentry-cli.git
+cd sentry-cli
 bun install
 bun run build
 bun run install:global
