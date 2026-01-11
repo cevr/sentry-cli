@@ -10,7 +10,10 @@
       "Bash(effect-solutions show:*)",
       "Bash(bun add:*)",
       "Bash(bunx effect-language-service patch:*)",
-      "Bash(bun run typecheck:*)"
+      "Bash(bun run typecheck:*)",
+      "Bash(bun run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd interactive login with browser open and token prompt\n\n- Create TokenProvider service that encapsulates token acquisition\n- Open browser to Sentry token creation page when no --token flag provided\n- Prompt user for token input after opening browser\n- Create Browser service for opening URLs \\(testable\\)\n- Add tests for token prompt flow via TokenProvider.test mock\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
