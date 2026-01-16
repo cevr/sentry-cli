@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-bin/sentry
+bin/
 
 # IDE
 .idea/

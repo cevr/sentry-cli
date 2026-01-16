@@ -7,14 +7,12 @@
   },
   "files": [
     "src",
-    "bin",
     "tsconfig.json"
   ],
   "scripts": {
-    "dev": "bun run bin/sentry.ts",
-    "build": "bun build bin/sentry.ts --compile --outfile bin/sentry",
+    "dev": "bun run src/sentry.ts",
+    "build": "bun build src/sentry.ts --compile --outfile bin/sentry",
     "postinstall": "bun run build",
-    "prepublishOnly": "rm -rf bin",
     "install:global": "ln -sf $(pwd)/bin/sentry $(bun pm bin -g)/sentry",
     "uninstall:global": "rm -f $(bun pm bin -g)/sentry",
     "typecheck": "tsc --noEmit",
