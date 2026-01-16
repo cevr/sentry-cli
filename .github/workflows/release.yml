@@ -23,7 +23,7 @@ jobs:
           bun-version: latest
 
       - name: Update npm for OIDC support
-        run: npm install -g npm@latest
+        run: sudo npm install -g npm@latest
 
       - run: bun install
 
