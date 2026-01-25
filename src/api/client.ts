@@ -2,7 +2,7 @@
  * Sentry API Client as an Effect service.
  * Adapted from sentry-mcp with Effect patterns.
  */
-import { Context, Effect, Layer, Option, Redacted } from "effect"
+import { Context, Effect, Either, Layer, Option, Redacted, Schema } from "effect"
 import {
   OrganizationListSchema,
   OrganizationSchema,
@@ -49,11 +49,30 @@ import type {
   Trace,
   AutofixRun,
   AutofixRunState,
-} from "./types.js"
-import { ApiError } from "../errors/index.js"
+} from "./schema.js"
+import { ApiError, ApiValidationError } from "../errors/index.js"
 import { SentryConfig } from "../config/index.js"
 
 const USER_AGENT = "sentry-cli-effect/0.1.0"
+
+/** Decode options that preserve extra fields (equivalent to Zod .passthrough()) */
+const decodeOptions = { onExcessProperty: "preserve" } as const
+
+/** Decode API response with Effect Schema, converting errors to ApiValidationError */
+const decodeApi = <A, I>(schema: Schema.Schema<A, I>) => (input: unknown) =>
+  Schema.decodeUnknown(schema)(input, decodeOptions).pipe(
+    Effect.mapError(
+      (e) =>
+        new ApiValidationError({
+          message: `Invalid API response`,
+          details: e,
+        })
+    )
+  )
+
+/** Decode with Either for safeParse-like behavior */
+const decodeEither = <A, I>(schema: Schema.Schema<A, I>) => (input: unknown) =>
+  Schema.decodeUnknownEither(schema)(input, decodeOptions)
 
 function isSentryHost(host: string): boolean {
   return (
@@ -93,71 +112,71 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
     readonly host: string
     readonly getIssueUrl: (organizationSlug: string, issueId: string) => string
     readonly getTraceUrl: (organizationSlug: string, traceId: string) => string
-    readonly getAuthenticatedUser: () => Effect.Effect<User, ApiError>
+    readonly getAuthenticatedUser: () => Effect.Effect<User, ApiError | ApiValidationError>
     readonly listOrganizations: (params?: {
       query?: string
-    }) => Effect.Effect<OrganizationList, ApiError>
+    }) => Effect.Effect<OrganizationList, ApiError | ApiValidationError>
     readonly getOrganization: (
       organizationSlug: string
-    ) => Effect.Effect<Organization, ApiError>
+    ) => Effect.Effect<Organization, ApiError | ApiValidationError>
     readonly listTeams: (
       organizationSlug: string,
       params?: { query?: string }
-    ) => Effect.Effect<TeamList, ApiError>
+    ) => Effect.Effect<TeamList, ApiError | ApiValidationError>
     readonly createTeam: (params: {
       organizationSlug: string
       name: string
-    }) => Effect.Effect<Team, ApiError>
+    }) => Effect.Effect<Team, ApiError | ApiValidationError>
     readonly listProjects: (
       organizationSlug: string,
       params?: { query?: string }
-    ) => Effect.Effect<ProjectList, ApiError>
+    ) => Effect.Effect<ProjectList, ApiError | ApiValidationError>
     readonly getProject: (params: {
       organizationSlug: string
       projectSlugOrId: string
-    }) => Effect.Effect<Project, ApiError>
+    }) => Effect.Effect<Project, ApiError | ApiValidationError>
     readonly createProject: (params: {
       organizationSlug: string
       teamSlug: string
       name: string
       platform?: string | null
-    }) => Effect.Effect<Project, ApiError>
+    }) => Effect.Effect<Project, ApiError | ApiValidationError>
     readonly updateProject: (params: {
       organizationSlug: string
       projectSlug: string
       name?: string | null
       slug?: string | null
       platform?: string | null
-    }) => Effect.Effect<Project, ApiError>
+    }) => Effect.Effect<Project, ApiError | ApiValidationError>
     readonly createClientKey: (params: {
       organizationSlug: string
       projectSlug: string
       name?: string
-    }) => Effect.Effect<ClientKey, ApiError>
+    }) => Effect.Effect<ClientKey, ApiError | ApiValidationError>
     readonly listClientKeys: (params: {
       organizationSlug: string
       projectSlug: string
-    }) => Effect.Effect<ClientKeyList, ApiError>
+    }) => Effect.Effect<ClientKeyList, ApiError | ApiValidationError>
     readonly listReleases: (params: {
       organizationSlug: string
       projectSlug?: string
       query?: string
-    }) => Effect.Effect<ReleaseList, ApiError>
+    }) => Effect.Effect<ReleaseList, ApiError | ApiValidationError>
     readonly listIssues: (params: {
       organizationSlug: string
       projectSlug?: string
       query?: string | null
       sortBy?: "user" | "freq" | "date" | "new"
       limit?: number
-    }) => Effect.Effect<IssueList, ApiError>
+    }) => Effect.Effect<IssueList, ApiError | ApiValidationError>
     readonly getIssue: (params: {
       organizationSlug: string
       issueId: string
-    }) => Effect.Effect<Issue, ApiError>
+    }) => Effect.Effect<Issue, ApiError | ApiValidationError>
     readonly getLatestEventForIssue: (params: {
       organizationSlug: string
       issueId: string
-    }) => Effect.Effect<Event, ApiError>
+    }) => Effect.Effect<Event, ApiError | ApiValidationError>
     readonly listEventsForIssue: (params: {
       organizationSlug: string
       issueId: string
@@ -165,12 +184,12 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
       limit?: number
       sort?: string
       statsPeriod?: string
-    }) => Effect.Effect<EventList, ApiError>
+    }) => Effect.Effect<EventList, ApiError | ApiValidationError>
     readonly listEventAttachments: (params: {
       organizationSlug: string
       projectSlug: string
       eventId: string
-    }) => Effect.Effect<EventAttachmentList, ApiError>
+    }) => Effect.Effect<EventAttachmentList, ApiError | ApiValidationError>
     readonly getEventAttachment: (params: {
       organizationSlug: string
       projectSlug: string
@@ -183,26 +202,26 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         filename: string
         blob: Blob
       },
-      ApiError
+      ApiError | ApiValidationError
     >
     readonly updateIssue: (params: {
       organizationSlug: string
       issueId: string
       status?: string
       assignedTo?: string
-    }) => Effect.Effect<Issue, ApiError>
+    }) => Effect.Effect<Issue, ApiError | ApiValidationError>
     readonly getTraceMeta: (params: {
       organizationSlug: string
       traceId: string
       statsPeriod?: string
-    }) => Effect.Effect<TraceMeta, ApiError>
+    }) => Effect.Effect<TraceMeta, ApiError | ApiValidationError>
     readonly getTrace: (params: {
       organizationSlug: string
       traceId: string
       limit?: number
       project?: string
       statsPeriod?: string
-    }) => Effect.Effect<Trace, ApiError>
+    }) => Effect.Effect<Trace, ApiError | ApiValidationError>
     readonly searchEvents: (params: {
       organizationSlug: string
       query: string
@@ -214,17 +233,17 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
       start?: string
       end?: string
       sort?: string
-    }) => Effect.Effect<EventsResponse, ApiError>
+    }) => Effect.Effect<EventsResponse, ApiError | ApiValidationError>
     readonly startAutofix: (params: {
       organizationSlug: string
       issueId: string
       eventId?: string
       instruction?: string
-    }) => Effect.Effect<AutofixRun, ApiError>
+    }) => Effect.Effect<AutofixRun, ApiError | ApiValidationError>
     readonly getAutofixState: (params: {
       organizationSlug: string
       issueId: string
-    }) => Effect.Effect<AutofixRunState, ApiError>
+    }) => Effect.Effect<AutofixRunState, ApiError | ApiValidationError>
   }
 >() {
   static readonly layer = Layer.effect(
@@ -284,19 +303,19 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           }
 
           if (parsed) {
-            const result = ApiErrorSchema.safeParse(parsed)
-            if (result.success) {
+            const result = decodeEither(ApiErrorSchema)(parsed)
+            if (Either.isRight(result)) {
               if (response.status === 404) {
                 return yield* Effect.fail(
                   new ApiError({
-                    message: result.data.detail,
+                    message: result.right.detail,
                     status: 404,
                   })
                 )
               }
               return yield* Effect.fail(
                 new ApiError({
-                  message: result.data.detail,
+                  message: result.right.detail,
                   status: response.status,
                 })
               )
@@ -345,7 +364,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         function* () {
           const authHost = isSaas() ? "sentry.io" : undefined
           const body = yield* requestJSON("/auth/", undefined, authHost)
-          return UserSchema.parse(body)
+          return yield* decodeApi(UserSchema)(body)
         }
       )
 
@@ -360,7 +379,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
 
           if (!isSaas()) {
             const body = yield* requestJSON(path)
-            return OrganizationListSchema.parse(body)
+            return yield* decodeApi(OrganizationListSchema)(body)
           }
 
           // For SaaS, try regions endpoint
@@ -382,12 +401,12 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           }).pipe(Effect.catchAll(() => Effect.succeed(null)))
 
           if (regionsResult) {
-            const regionData = UserRegionsSchema.safeParse(regionsResult)
-            if (regionData.success) {
+            const regionData = decodeEither(UserRegionsSchema)(regionsResult)
+            if (Either.isRight(regionData)) {
               const allOrgs = yield* Effect.all(
-                regionData.data.regions.map((region) =>
+                regionData.right.regions.map((region) =>
                   requestJSON(path, undefined, new URL(region.url).host).pipe(
-                    Effect.map((data) => OrganizationListSchema.parse(data)),
+                    Effect.flatMap(decodeApi(OrganizationListSchema)),
                     Effect.catchAll(() => Effect.succeed([] as OrganizationList))
                   )
                 ),
@@ -398,14 +417,14 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           }
 
           const body = yield* requestJSON(path)
-          return OrganizationListSchema.parse(body)
+          return yield* decodeApi(OrganizationListSchema)(body)
         }
       )
 
       const getOrganization = Effect.fn("SentryApi.getOrganization")(
         function* (organizationSlug: string) {
           const body = yield* requestJSON(`/organizations/${organizationSlug}/`)
-          return OrganizationSchema.parse(body)
+          return yield* decodeApi(OrganizationSchema)(body)
         }
       )
 
@@ -421,7 +440,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/organizations/${organizationSlug}/teams/?${queryParams.toString()}`
         )
-        return TeamListSchema.parse(body)
+        return yield* decodeApi(TeamListSchema)(body)
       })
 
       const createTeam = Effect.fn("SentryApi.createTeam")(function* (params: {
@@ -435,7 +454,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
             body: JSON.stringify({ name: params.name }),
           }
         )
-        return TeamSchema.parse(body)
+        return yield* decodeApi(TeamSchema)(body)
       })
 
       const listProjects = Effect.fn("SentryApi.listProjects")(function* (
@@ -450,7 +469,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/organizations/${organizationSlug}/projects/?${queryParams.toString()}`
         )
-        return ProjectListSchema.parse(body)
+        return yield* decodeApi(ProjectListSchema)(body)
       })
 
       const getProject = Effect.fn("SentryApi.getProject")(function* (params: {
@@ -460,7 +479,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/projects/${params.organizationSlug}/${params.projectSlugOrId}/`
         )
-        return ProjectSchema.parse(body)
+        return yield* decodeApi(ProjectSchema)(body)
       })
 
       const createProject = Effect.fn("SentryApi.createProject")(
@@ -481,7 +500,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
               body: JSON.stringify(createData),
             }
           )
-          return ProjectSchema.parse(body)
+          return yield* decodeApi(ProjectSchema)(body)
         }
       )
 
@@ -505,7 +524,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
               body: JSON.stringify(updateData),
             }
           )
-          return ProjectSchema.parse(body)
+          return yield* decodeApi(ProjectSchema)(body)
         }
       )
 
@@ -522,7 +541,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
               body: JSON.stringify({ name: params.name }),
             }
           )
-          return ClientKeySchema.parse(body)
+          return yield* decodeApi(ClientKeySchema)(body)
         }
       )
 
@@ -531,7 +550,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             `/projects/${params.organizationSlug}/${params.projectSlug}/keys/`
           )
-          return ClientKeyListSchema.parse(body)
+          return yield* decodeApi(ClientKeyListSchema)(body)
         }
       )
 
@@ -553,7 +572,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             searchQuery.toString() ? `${path}?${searchQuery.toString()}` : path
           )
-          return ReleaseListSchema.parse(body)
+          return yield* decodeApi(ReleaseListSchema)(body)
         }
       )
 
@@ -581,7 +600,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           : `/organizations/${params.organizationSlug}/issues/?${queryParams.toString()}`
 
         const body = yield* requestJSON(apiUrl)
-        return IssueListSchema.parse(body)
+        return yield* decodeApi(IssueListSchema)(body)
       })
 
       const getIssue = Effect.fn("SentryApi.getIssue")(function* (params: {
@@ -591,7 +610,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/organizations/${params.organizationSlug}/issues/${params.issueId}/`
         )
-        return IssueSchema.parse(body)
+        return yield* decodeApi(IssueSchema)(body)
       })
 
       const getLatestEventForIssue = Effect.fn(
@@ -600,7 +619,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/organizations/${params.organizationSlug}/issues/${params.issueId}/events/latest/`
         )
-        return EventSchema.parse(body)
+        return yield* decodeApi(EventSchema)(body)
       })
 
       const listEventsForIssue = Effect.fn("SentryApi.listEventsForIssue")(
@@ -622,7 +641,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const url = `/organizations/${params.organizationSlug}/issues/${params.issueId}/events/${query ? `?${query}` : ""}`
 
           const body = yield* requestJSON(url)
-          return EventListSchema.parse(body)
+          return yield* decodeApi(EventListSchema)(body)
         }
       )
 
@@ -635,7 +654,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             `/projects/${params.organizationSlug}/${params.projectSlug}/events/${params.eventId}/attachments/`
           )
-          return EventAttachmentListSchema.parse(body)
+          return yield* decodeApi(EventAttachmentListSchema)(body)
         }
       )
 
@@ -650,7 +669,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
             `/projects/${params.organizationSlug}/${params.projectSlug}/events/${params.eventId}/attachments/`
           )
 
-          const attachments = EventAttachmentListSchema.parse(attachmentsData)
+          const attachments = yield* decodeApi(EventAttachmentListSchema)(attachmentsData)
           const attachment = attachments.find(
             (att) => att.id === params.attachmentId
           )
@@ -708,7 +727,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
             body: JSON.stringify(updateData),
           }
         )
-        return IssueSchema.parse(body)
+        return yield* decodeApi(IssueSchema)(body)
       })
 
       const getTraceMeta = Effect.fn("SentryApi.getTraceMeta")(
@@ -723,7 +742,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             `/organizations/${params.organizationSlug}/trace-meta/${params.traceId}/?${queryParams.toString()}`
           )
-          return TraceMetaSchema.parse(body)
+          return yield* decodeApi(TraceMetaSchema)(body)
         }
       )
 
@@ -742,7 +761,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         const body = yield* requestJSON(
           `/organizations/${params.organizationSlug}/trace/${params.traceId}/?${queryParams.toString()}`
         )
-        return TraceSchema.parse(body)
+        return yield* decodeApi(TraceSchema)(body)
       })
 
       const searchEvents = Effect.fn("SentryApi.searchEvents")(
@@ -785,7 +804,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             `/organizations/${params.organizationSlug}/events/?${queryParams.toString()}`
           )
-          return EventsResponseSchema.parse(body)
+          return yield* decodeApi(EventsResponseSchema)(body)
         }
       )
 
@@ -806,7 +825,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
               }),
             }
           )
-          return AutofixRunSchema.parse(body)
+          return yield* decodeApi(AutofixRunSchema)(body)
         }
       )
 
@@ -815,7 +834,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           const body = yield* requestJSON(
             `/organizations/${params.organizationSlug}/issues/${params.issueId}/autofix/`
           )
-          return AutofixRunStateSchema.parse(body)
+          return yield* decodeApi(AutofixRunStateSchema)(body)
         }
       )
 

@@ -1,7 +1,7 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
-import type { AutofixRunStepDefault, AutofixRunStepRootCauseAnalysis } from "../../api/types.js"
+import type { AutofixRunStepDefault, AutofixRunStepRootCauseAnalysis } from "../../api/schema.js"
 import { OrgService } from "../../services/org-service.js"
 import { orgOption } from "../shared.js"
 

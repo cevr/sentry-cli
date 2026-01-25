@@ -8,12 +8,12 @@ import { Terminal } from "@effect/platform"
 import { Context, Effect, Layer, Option, Ref } from "effect"
 import { SentryApi } from "../api/client.js"
 import { SentryConfig } from "../config/index.js"
-import { ApiError, ConfigError } from "../errors/index.js"
+import { ApiError, ApiValidationError, ConfigError } from "../errors/index.js"
 
 export class OrgService extends Context.Tag("@sentry-cli/OrgService")<
   OrgService,
   {
-    readonly get: () => Effect.Effect<string, ConfigError | ApiError | Terminal.QuitException, Terminal.Terminal>
+    readonly get: () => Effect.Effect<string, ConfigError | ApiError | ApiValidationError | Terminal.QuitException, Terminal.Terminal>
   }
 >() {
   /**

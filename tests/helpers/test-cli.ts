@@ -17,7 +17,7 @@ import { TokenProvider } from "../../src/services/token-provider.js"
 import { OrgService } from "../../src/services/org-service.js"
 import { ProjectService } from "../../src/services/project-service.js"
 import { TeamService } from "../../src/services/team-service.js"
-import type { User, EventsResponse } from "../../src/api/types.js"
+import type { User, EventsResponse } from "../../src/api/schema.js"
 import { cli } from "../../src/main.js"
 
 // Extract the SentryApi service interface type

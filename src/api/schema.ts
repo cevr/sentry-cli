@@ -1,483 +1,527 @@
 /**
- * Zod schemas for Sentry API response validation.
- * Adapted from sentry-mcp.
+ * Effect Schema definitions for Sentry API response validation.
+ * Migrated from Zod.
  */
-import { z } from "zod"
+import { Schema } from "effect"
 
-export const ApiErrorSchema = z
-  .object({
-    detail: z.string(),
-  })
-  .passthrough()
+// ============================================================================
+// Helpers
+// ============================================================================
 
-export const UserSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    name: z.string().nullable(),
-    email: z.string(),
-  })
-  .passthrough()
+/** String or number ID (common in Sentry API) */
+const StringOrNumber = Schema.Union(Schema.String, Schema.Number)
 
-export const UserRegionsSchema = z.object({
-  regions: z.array(
-    z.object({
-      name: z.string(),
-      url: z.string().url(),
+// ============================================================================
+// Base Schemas
+// ============================================================================
+
+export const ApiErrorSchema = Schema.Struct({
+  detail: Schema.String,
+})
+
+export const UserSchema = Schema.Struct({
+  id: StringOrNumber,
+  name: Schema.NullOr(Schema.String),
+  email: Schema.String,
+})
+
+export type User = typeof UserSchema.Type
+
+export const UserRegionsSchema = Schema.Struct({
+  regions: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      url: Schema.String,
     })
   ),
 })
 
-export const OrganizationSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    slug: z.string(),
-    name: z.string(),
-    links: z
-      .object({
-        regionUrl: z
-          .string()
-          .refine(
-            (value) => !value || z.string().url().safeParse(value).success,
-            {
-              message:
-                "Must be a valid URL or empty string (for self-hosted Sentry)",
-            }
-          )
-          .optional(),
-        organizationUrl: z.string().url(),
-      })
-      .optional(),
-  })
-  .passthrough()
+export type UserRegions = typeof UserRegionsSchema.Type
 
-export const OrganizationListSchema = z.array(OrganizationSchema)
-
-export const TeamSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    slug: z.string(),
-    name: z.string(),
-  })
-  .passthrough()
-
-export const TeamListSchema = z.array(TeamSchema)
-
-export const ProjectSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    slug: z.string(),
-    name: z.string(),
-    platform: z.string().nullable().optional(),
-  })
-  .passthrough()
-
-export const ProjectListSchema = z.array(ProjectSchema)
-
-export const ClientKeySchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    name: z.string(),
-    dsn: z.object({
-      public: z.string(),
-    }),
-    isActive: z.boolean(),
-    dateCreated: z.string().datetime(),
-  })
-  .passthrough()
-
-export const ClientKeyListSchema = z.array(ClientKeySchema)
-
-export const ReleaseSchema = z.object({
-  id: z.union([z.string(), z.number()]),
-  version: z.string(),
-  shortVersion: z.string(),
-  dateCreated: z.string().datetime(),
-  dateReleased: z.string().datetime().nullable(),
-  firstEvent: z.string().datetime().nullable(),
-  lastEvent: z.string().datetime().nullable(),
-  newGroups: z.number(),
-  lastCommit: z
-    .object({
-      id: z.union([z.string(), z.number()]),
-      message: z.string(),
-      dateCreated: z.string().datetime(),
-      author: z.object({
-        name: z.string(),
-        email: z.string(),
-      }),
+export const OrganizationSchema = Schema.Struct({
+  id: StringOrNumber,
+  slug: Schema.String,
+  name: Schema.String,
+  links: Schema.optional(
+    Schema.Struct({
+      regionUrl: Schema.optional(Schema.String),
+      organizationUrl: Schema.String,
     })
-    .nullable(),
-  lastDeploy: z
-    .object({
-      id: z.union([z.string(), z.number()]),
-      environment: z.string(),
-      dateStarted: z.string().datetime().nullable(),
-      dateFinished: z.string().datetime().nullable(),
-    })
-    .nullable(),
-  projects: z.array(ProjectSchema),
-})
-
-export const ReleaseListSchema = z.array(ReleaseSchema)
-
-export const TagSchema = z.object({
-  key: z.string(),
-  name: z.string(),
-  totalValues: z.number(),
-})
-
-export const TagListSchema = z.array(TagSchema)
-
-export const AssignedToSchema = z.union([
-  z.null(),
-  z.string(),
-  z
-    .object({
-      type: z.enum(["user", "team"]),
-      id: z.union([z.string(), z.number()]),
-      name: z.string(),
-      email: z.string().optional(),
-    })
-    .passthrough(),
-])
-
-export const IssueSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]),
-    shortId: z.string(),
-    title: z.string(),
-    firstSeen: z.string().datetime(),
-    lastSeen: z.string().datetime(),
-    count: z.union([z.string(), z.number()]),
-    userCount: z.union([z.string(), z.number()]),
-    permalink: z.string().url(),
-    project: ProjectSchema,
-    platform: z.string().nullable().optional(),
-    status: z.string(),
-    substatus: z.string().nullable().optional(),
-    culprit: z.string(),
-    type: z.union([
-      z.literal("error"),
-      z.literal("transaction"),
-      z.literal("generic"),
-      z.unknown(),
-    ]),
-    assignedTo: AssignedToSchema.optional(),
-    issueType: z.string().optional(),
-    issueCategory: z.string().optional(),
-    metadata: z
-      .object({
-        title: z.string().nullable().optional(),
-        location: z.string().nullable().optional(),
-        value: z.string().nullable().optional(),
-      })
-      .optional(),
-  })
-  .passthrough()
-
-export const IssueListSchema = z.array(IssueSchema)
-
-export const FrameInterface = z
-  .object({
-    filename: z.string().nullable(),
-    function: z.string().nullable(),
-    lineNo: z.number().nullable(),
-    colNo: z.number().nullable(),
-    absPath: z.string().nullable(),
-    module: z.string().nullable(),
-    context: z.array(z.tuple([z.number(), z.string()])),
-    inApp: z.boolean().optional(),
-    vars: z.record(z.string(), z.unknown()).optional(),
-  })
-  .partial()
-
-export const ExceptionInterface = z
-  .object({
-    mechanism: z
-      .object({
-        type: z.string().nullable(),
-        handled: z.boolean().nullable(),
-      })
-      .partial(),
-    type: z.string().nullable(),
-    value: z.string().nullable(),
-    stacktrace: z.object({
-      frames: z.array(FrameInterface),
-    }),
-  })
-  .partial()
-
-export const ErrorEntrySchema = z
-  .object({
-    values: z.array(ExceptionInterface.optional()),
-    value: ExceptionInterface.nullable().optional(),
-  })
-  .partial()
-
-export const RequestEntrySchema = z
-  .object({
-    method: z.string().nullable(),
-    url: z.string().url().nullable(),
-  })
-  .partial()
-
-export const MessageEntrySchema = z
-  .object({
-    formatted: z.string().nullable(),
-    message: z.string().nullable(),
-    params: z.array(z.unknown()).optional(),
-  })
-  .partial()
-
-export const ThreadEntrySchema = z
-  .object({
-    id: z.number().nullable(),
-    name: z.string().nullable(),
-    current: z.boolean().nullable(),
-    crashed: z.boolean().nullable(),
-    state: z.string().nullable(),
-    stacktrace: z
-      .object({
-        frames: z.array(FrameInterface),
-      })
-      .nullable(),
-  })
-  .partial()
-
-export const ThreadsEntrySchema = z
-  .object({
-    values: z.array(ThreadEntrySchema),
-  })
-  .partial()
-
-export const BreadcrumbSchema = z
-  .object({
-    timestamp: z.string().nullable(),
-    type: z.string().nullable(),
-    category: z.string().nullable(),
-    level: z.string().nullable(),
-    message: z.string().nullable(),
-    data: z.record(z.string(), z.unknown()).nullable(),
-  })
-  .partial()
-
-export const BreadcrumbsEntrySchema = z
-  .object({
-    values: z.array(BreadcrumbSchema),
-  })
-  .partial()
-
-const BaseEventSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  message: z.string().nullable(),
-  platform: z.string().nullable().optional(),
-  type: z.unknown(),
-  entries: z.array(
-    z.union([
-      z.object({
-        type: z.literal("exception"),
-        data: ErrorEntrySchema,
-      }),
-      z.object({
-        type: z.literal("message"),
-        data: MessageEntrySchema,
-      }),
-      z.object({
-        type: z.literal("threads"),
-        data: ThreadsEntrySchema,
-      }),
-      z.object({
-        type: z.literal("request"),
-        data: RequestEntrySchema,
-      }),
-      z.object({
-        type: z.literal("breadcrumbs"),
-        data: BreadcrumbsEntrySchema,
-      }),
-      z.object({
-        type: z.literal("spans"),
-        data: z.unknown(),
-      }),
-      z.object({
-        type: z.string(),
-        data: z.unknown(),
-      }),
-    ])
   ),
-  contexts: z
-    .record(
-      z.string(),
-      z
-        .object({
-          type: z.union([
-            z.literal("default"),
-            z.literal("runtime"),
-            z.literal("os"),
-            z.literal("trace"),
-            z.unknown(),
-          ]),
-        })
-        .passthrough()
-    )
-    .optional(),
-  context: z.record(z.string(), z.unknown()).optional(),
-  tags: z
-    .array(
-      z.object({
-        key: z.string(),
-        value: z.string().nullable(),
+})
+
+export type Organization = typeof OrganizationSchema.Type
+
+export const OrganizationListSchema = Schema.Array(OrganizationSchema)
+
+export type OrganizationList = typeof OrganizationListSchema.Type
+
+export const TeamSchema = Schema.Struct({
+  id: StringOrNumber,
+  slug: Schema.String,
+  name: Schema.String,
+})
+
+export type Team = typeof TeamSchema.Type
+
+export const TeamListSchema = Schema.Array(TeamSchema)
+
+export type TeamList = typeof TeamListSchema.Type
+
+export const ProjectSchema = Schema.Struct({
+  id: StringOrNumber,
+  slug: Schema.String,
+  name: Schema.String,
+  platform: Schema.optional(Schema.NullOr(Schema.String)),
+})
+
+export type Project = typeof ProjectSchema.Type
+
+export const ProjectListSchema = Schema.Array(ProjectSchema)
+
+export type ProjectList = typeof ProjectListSchema.Type
+
+export const ClientKeySchema = Schema.Struct({
+  id: StringOrNumber,
+  name: Schema.String,
+  dsn: Schema.Struct({
+    public: Schema.String,
+  }),
+  isActive: Schema.Boolean,
+  dateCreated: Schema.String,
+})
+
+export type ClientKey = typeof ClientKeySchema.Type
+
+export const ClientKeyListSchema = Schema.Array(ClientKeySchema)
+
+export type ClientKeyList = typeof ClientKeyListSchema.Type
+
+export const ReleaseSchema = Schema.Struct({
+  id: StringOrNumber,
+  version: Schema.String,
+  shortVersion: Schema.String,
+  dateCreated: Schema.String,
+  dateReleased: Schema.NullOr(Schema.String),
+  firstEvent: Schema.NullOr(Schema.String),
+  lastEvent: Schema.NullOr(Schema.String),
+  newGroups: Schema.Number,
+  lastCommit: Schema.NullOr(
+    Schema.Struct({
+      id: StringOrNumber,
+      message: Schema.String,
+      dateCreated: Schema.String,
+      author: Schema.Struct({
+        name: Schema.String,
+        email: Schema.String,
+      }),
+    })
+  ),
+  lastDeploy: Schema.NullOr(
+    Schema.Struct({
+      id: StringOrNumber,
+      environment: Schema.String,
+      dateStarted: Schema.NullOr(Schema.String),
+      dateFinished: Schema.NullOr(Schema.String),
+    })
+  ),
+  projects: Schema.Array(ProjectSchema),
+})
+
+export type Release = typeof ReleaseSchema.Type
+
+export const ReleaseListSchema = Schema.Array(ReleaseSchema)
+
+export type ReleaseList = typeof ReleaseListSchema.Type
+
+export const TagSchema = Schema.Struct({
+  key: Schema.String,
+  name: Schema.String,
+  totalValues: Schema.Number,
+})
+
+export type Tag = typeof TagSchema.Type
+
+export const TagListSchema = Schema.Array(TagSchema)
+
+export type TagList = typeof TagListSchema.Type
+
+const AssignedToObjectSchema = Schema.Struct({
+  type: Schema.Literal("user", "team"),
+  id: StringOrNumber,
+  name: Schema.String,
+  email: Schema.optional(Schema.String),
+})
+
+export const AssignedToSchema = Schema.Union(
+  Schema.Null,
+  Schema.String,
+  AssignedToObjectSchema
+)
+
+export type AssignedTo = typeof AssignedToSchema.Type
+
+const IssueMetadataSchema = Schema.Struct({
+  title: Schema.optional(Schema.NullOr(Schema.String)),
+  location: Schema.optional(Schema.NullOr(Schema.String)),
+  value: Schema.optional(Schema.NullOr(Schema.String)),
+})
+
+export const IssueSchema = Schema.Struct({
+  id: StringOrNumber,
+  shortId: Schema.String,
+  title: Schema.String,
+  firstSeen: Schema.String,
+  lastSeen: Schema.String,
+  count: StringOrNumber,
+  userCount: StringOrNumber,
+  permalink: Schema.String,
+  project: ProjectSchema,
+  platform: Schema.optional(Schema.NullOr(Schema.String)),
+  status: Schema.String,
+  substatus: Schema.optional(Schema.NullOr(Schema.String)),
+  culprit: Schema.String,
+  type: Schema.Union(
+    Schema.Literal("error"),
+    Schema.Literal("transaction"),
+    Schema.Literal("generic"),
+    Schema.Unknown
+  ),
+  assignedTo: Schema.optional(AssignedToSchema),
+  issueType: Schema.optional(Schema.String),
+  issueCategory: Schema.optional(Schema.String),
+  metadata: Schema.optional(IssueMetadataSchema),
+})
+
+export type Issue = typeof IssueSchema.Type
+
+export const IssueListSchema = Schema.Array(IssueSchema)
+
+export type IssueList = typeof IssueListSchema.Type
+
+// ============================================================================
+// Event Schemas
+// ============================================================================
+
+export const FrameInterface = Schema.partial(
+  Schema.Struct({
+    filename: Schema.NullOr(Schema.String),
+    function: Schema.NullOr(Schema.String),
+    lineNo: Schema.NullOr(Schema.Number),
+    colNo: Schema.NullOr(Schema.Number),
+    absPath: Schema.NullOr(Schema.String),
+    module: Schema.NullOr(Schema.String),
+    context: Schema.Array(Schema.Tuple(Schema.Number, Schema.String)),
+    inApp: Schema.optional(Schema.Boolean),
+    vars: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  })
+)
+
+export const ExceptionInterface = Schema.partial(
+  Schema.Struct({
+    mechanism: Schema.partial(
+      Schema.Struct({
+        type: Schema.NullOr(Schema.String),
+        handled: Schema.NullOr(Schema.Boolean),
+      })
+    ),
+    type: Schema.NullOr(Schema.String),
+    value: Schema.NullOr(Schema.String),
+    stacktrace: Schema.Struct({
+      frames: Schema.Array(FrameInterface),
+    }),
+  })
+)
+
+export const ErrorEntrySchema = Schema.partial(
+  Schema.Struct({
+    values: Schema.Array(Schema.UndefinedOr(ExceptionInterface)),
+    value: Schema.optional(Schema.NullOr(ExceptionInterface)),
+  })
+)
+
+export const RequestEntrySchema = Schema.partial(
+  Schema.Struct({
+    method: Schema.NullOr(Schema.String),
+    url: Schema.NullOr(Schema.String),
+  })
+)
+
+export const MessageEntrySchema = Schema.partial(
+  Schema.Struct({
+    formatted: Schema.NullOr(Schema.String),
+    message: Schema.NullOr(Schema.String),
+    params: Schema.optional(Schema.Array(Schema.Unknown)),
+  })
+)
+
+export const ThreadEntrySchema = Schema.partial(
+  Schema.Struct({
+    id: Schema.NullOr(Schema.Number),
+    name: Schema.NullOr(Schema.String),
+    current: Schema.NullOr(Schema.Boolean),
+    crashed: Schema.NullOr(Schema.Boolean),
+    state: Schema.NullOr(Schema.String),
+    stacktrace: Schema.NullOr(
+      Schema.Struct({
+        frames: Schema.Array(FrameInterface),
+      })
+    ),
+  })
+)
+
+export const ThreadsEntrySchema = Schema.partial(
+  Schema.Struct({
+    values: Schema.Array(ThreadEntrySchema),
+  })
+)
+
+export const BreadcrumbSchema = Schema.partial(
+  Schema.Struct({
+    timestamp: Schema.NullOr(Schema.String),
+    type: Schema.NullOr(Schema.String),
+    category: Schema.NullOr(Schema.String),
+    level: Schema.NullOr(Schema.String),
+    message: Schema.NullOr(Schema.String),
+    data: Schema.NullOr(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  })
+)
+
+export const BreadcrumbsEntrySchema = Schema.partial(
+  Schema.Struct({
+    values: Schema.Array(BreadcrumbSchema),
+  })
+)
+
+const EventEntrySchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("exception"),
+    data: ErrorEntrySchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("message"),
+    data: MessageEntrySchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("threads"),
+    data: ThreadsEntrySchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("request"),
+    data: RequestEntrySchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("breadcrumbs"),
+    data: BreadcrumbsEntrySchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("spans"),
+    data: Schema.Unknown,
+  }),
+  Schema.Struct({
+    type: Schema.String,
+    data: Schema.Unknown,
+  })
+)
+
+const ContextSchema = Schema.Struct({
+  type: Schema.Union(
+    Schema.Literal("default"),
+    Schema.Literal("runtime"),
+    Schema.Literal("os"),
+    Schema.Literal("trace"),
+    Schema.Unknown
+  ),
+})
+
+const EventTagSchema = Schema.Struct({
+  key: Schema.String,
+  value: Schema.NullOr(Schema.String),
+})
+
+const BaseEventFields = {
+  id: Schema.String,
+  title: Schema.String,
+  message: Schema.NullOr(Schema.String),
+  platform: Schema.optional(Schema.NullOr(Schema.String)),
+  entries: Schema.Array(EventEntrySchema),
+  contexts: Schema.optional(Schema.Record({ key: Schema.String, value: ContextSchema })),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  tags: Schema.optional(Schema.Array(EventTagSchema)),
+  _meta: Schema.optional(Schema.Unknown),
+  dateReceived: Schema.optional(Schema.String),
+}
+
+export const ErrorEventSchema = Schema.Struct({
+  ...BaseEventFields,
+  type: Schema.Literal("error"),
+  culprit: Schema.NullOr(Schema.String),
+  dateCreated: Schema.String,
+})
+
+export type ErrorEvent = typeof ErrorEventSchema.Type
+
+export const DefaultEventSchema = Schema.Struct({
+  ...BaseEventFields,
+  type: Schema.Literal("default"),
+  culprit: Schema.optional(Schema.NullOr(Schema.String)),
+  dateCreated: Schema.String,
+})
+
+export type DefaultEvent = typeof DefaultEventSchema.Type
+
+export const EvidenceDisplaySchema = Schema.Struct({
+  name: Schema.String,
+  value: Schema.String,
+  important: Schema.optional(Schema.Boolean),
+})
+
+const TransactionOccurrenceSchema = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  projectId: Schema.optional(Schema.Number),
+  eventId: Schema.optional(Schema.String),
+  fingerprint: Schema.optional(Schema.Array(Schema.String)),
+  issueTitle: Schema.String,
+  subtitle: Schema.optional(Schema.String),
+  resourceId: Schema.optional(Schema.NullOr(Schema.String)),
+  evidenceData: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  evidenceDisplay: Schema.optional(Schema.Array(EvidenceDisplaySchema)),
+  type: Schema.optional(Schema.Number),
+  detectionTime: Schema.optional(Schema.Number),
+  level: Schema.optional(Schema.String),
+  culprit: Schema.NullOr(Schema.String),
+  priority: Schema.optional(Schema.Number),
+  assignee: Schema.optional(Schema.NullOr(Schema.String)),
+})
+
+export const TransactionEventSchema = Schema.Struct({
+  ...BaseEventFields,
+  type: Schema.Literal("transaction"),
+  occurrence: Schema.optional(Schema.NullOr(TransactionOccurrenceSchema)),
+})
+
+export type TransactionEvent = typeof TransactionEventSchema.Type
+
+export const OccurrenceSchema = Schema.Struct({
+  id: Schema.String,
+  projectId: Schema.Number,
+  eventId: Schema.String,
+  fingerprint: Schema.Array(Schema.String),
+  issueTitle: Schema.String,
+  subtitle: Schema.optional(Schema.String),
+  resourceId: Schema.optional(Schema.NullOr(Schema.String)),
+  evidenceData: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  evidenceDisplay: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        value: Schema.String,
+        important: Schema.Boolean,
       })
     )
-    .optional(),
-  _meta: z.unknown().optional(),
-  dateReceived: z.string().datetime().optional(),
+  ),
+  type: Schema.Number,
+  detectionTime: Schema.optional(Schema.Number),
+  level: Schema.optional(Schema.String),
+  culprit: Schema.optional(Schema.String),
+  priority: Schema.optional(Schema.Number),
+  assignee: Schema.optional(Schema.NullOr(Schema.String)),
 })
 
-export const ErrorEventSchema = BaseEventSchema.omit({
-  type: true,
-}).extend({
-  type: z.literal("error"),
-  culprit: z.string().nullable(),
-  dateCreated: z.string().datetime(),
+export type Occurrence = typeof OccurrenceSchema.Type
+
+export const GenericEventSchema = Schema.Struct({
+  ...BaseEventFields,
+  type: Schema.Literal("generic"),
+  culprit: Schema.optional(Schema.NullOr(Schema.String)),
+  dateCreated: Schema.String,
+  occurrence: Schema.optional(OccurrenceSchema),
 })
 
-export const DefaultEventSchema = BaseEventSchema.omit({
-  type: true,
-}).extend({
-  type: z.literal("default"),
-  culprit: z.string().nullable().optional(),
-  dateCreated: z.string().datetime(),
+export type GenericEvent = typeof GenericEventSchema.Type
+
+export const UnknownEventSchema = Schema.Struct({
+  ...BaseEventFields,
+  type: Schema.Unknown,
 })
 
-export const TransactionEventSchema = BaseEventSchema.omit({
-  type: true,
-}).extend({
-  type: z.literal("transaction"),
-  occurrence: z
-    .object({
-      id: z.string().optional(),
-      projectId: z.number().optional(),
-      eventId: z.string().optional(),
-      fingerprint: z.array(z.string()).optional(),
-      issueTitle: z.string(),
-      subtitle: z.string().optional(),
-      resourceId: z.string().nullable().optional(),
-      evidenceData: z.record(z.string(), z.any()).optional(),
-      evidenceDisplay: z
-        .array(
-          z.object({
-            name: z.string(),
-            value: z.string(),
-            important: z.boolean().optional(),
-          })
-        )
-        .optional(),
-      type: z.number().optional(),
-      detectionTime: z.number().optional(),
-      level: z.string().optional(),
-      culprit: z.string().nullable(),
-      priority: z.number().optional(),
-      assignee: z.string().nullable().optional(),
-    })
-    .nullish(),
-})
+export type UnknownEvent = typeof UnknownEventSchema.Type
 
-export const EvidenceDisplaySchema = z.object({
-  name: z.string(),
-  value: z.string(),
-  important: z.boolean(),
-})
-
-export const OccurrenceSchema = z
-  .object({
-    id: z.string(),
-    projectId: z.number(),
-    eventId: z.string(),
-    fingerprint: z.array(z.string()),
-    issueTitle: z.string(),
-    subtitle: z.string().optional(),
-    resourceId: z.string().nullable().optional(),
-    evidenceData: z.record(z.string(), z.unknown()).optional(),
-    evidenceDisplay: z.array(EvidenceDisplaySchema).optional(),
-    type: z.number(),
-    detectionTime: z.number().optional(),
-    level: z.string().optional(),
-    culprit: z.string().optional(),
-    priority: z.number().optional(),
-    assignee: z.string().nullable().optional(),
-  })
-  .passthrough()
-
-export const GenericEventSchema = BaseEventSchema.omit({
-  type: true,
-}).extend({
-  type: z.literal("generic"),
-  culprit: z.string().nullable().optional(),
-  dateCreated: z.string().datetime(),
-  occurrence: OccurrenceSchema.optional(),
-})
-
-export const UnknownEventSchema = BaseEventSchema.omit({
-  type: true,
-}).extend({
-  type: z.unknown(),
-})
-
-export const EventSchema = z.union([
+export const EventSchema = Schema.Union(
   ErrorEventSchema,
   DefaultEventSchema,
   TransactionEventSchema,
   GenericEventSchema,
-  UnknownEventSchema,
-])
+  UnknownEventSchema
+)
 
-export const EventListSchema = z.array(EventSchema)
+export type RawEvent = typeof EventSchema.Type
 
-export const EventsResponseSchema = z.object({
-  data: z.array(z.unknown()),
-  meta: z
-    .object({
-      fields: z.record(z.string(), z.string()),
-    })
-    .passthrough(),
+export type Event =
+  | ErrorEvent
+  | DefaultEvent
+  | TransactionEvent
+  | GenericEvent
+  | UnknownEvent
+
+export const EventListSchema = Schema.Array(EventSchema)
+
+export type EventList = typeof EventListSchema.Type
+
+export const EventsResponseSchema = Schema.Struct({
+  data: Schema.Array(Schema.Unknown),
+  meta: Schema.Struct({
+    fields: Schema.Record({ key: Schema.String, value: Schema.String }),
+  }),
 })
 
-export const ErrorsSearchResponseSchema = EventsResponseSchema.extend({
-  data: z.array(
-    z.object({
-      issue: z.string(),
-      "issue.id": z.union([z.string(), z.number()]),
-      project: z.string(),
-      title: z.string(),
-      "count()": z.number(),
-      "last_seen()": z.string(),
-    })
-  ),
-})
+export type EventsResponse = typeof EventsResponseSchema.Type
 
-export const SpansSearchResponseSchema = EventsResponseSchema.extend({
-  data: z.array(
-    z.object({
-      id: z.string(),
-      trace: z.string(),
-      "span.op": z.string(),
-      "span.description": z.string(),
-      "span.duration": z.number(),
-      transaction: z.string(),
-      project: z.string(),
-      timestamp: z.string(),
+export const ErrorsSearchResponseSchema = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      issue: Schema.String,
+      "issue.id": StringOrNumber,
+      project: Schema.String,
+      title: Schema.String,
+      "count()": Schema.Number,
+      "last_seen()": Schema.String,
     })
   ),
+  meta: Schema.Struct({
+    fields: Schema.Record({ key: Schema.String, value: Schema.String }),
+  }),
 })
 
-export const AutofixRunSchema = z
-  .object({
-    run_id: z.union([z.string(), z.number()]),
-  })
-  .passthrough()
+export const SpansSearchResponseSchema = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      trace: Schema.String,
+      "span.op": Schema.String,
+      "span.description": Schema.String,
+      "span.duration": Schema.Number,
+      transaction: Schema.String,
+      project: Schema.String,
+      timestamp: Schema.String,
+    })
+  ),
+  meta: Schema.Struct({
+    fields: Schema.Record({ key: Schema.String, value: Schema.String }),
+  }),
+})
 
-const AutofixStatusSchema = z.enum([
+// ============================================================================
+// Autofix Schemas
+// ============================================================================
+
+export const AutofixRunSchema = Schema.Struct({
+  run_id: StringOrNumber,
+})
+
+export type AutofixRun = typeof AutofixRunSchema.Type
+
+const AutofixStatusSchema = Schema.Literal(
   "PENDING",
   "PROCESSING",
   "IN_PROGRESS",
@@ -486,168 +530,199 @@ const AutofixStatusSchema = z.enum([
   "FAILED",
   "ERROR",
   "CANCELLED",
-  "WAITING_FOR_USER_RESPONSE",
-])
+  "WAITING_FOR_USER_RESPONSE"
+)
 
-const AutofixRunStepBaseSchema = z.object({
-  type: z.string(),
-  key: z.string(),
-  index: z.number(),
-  status: AutofixStatusSchema,
-  title: z.string(),
-  output_stream: z.string().nullable(),
-  progress: z.array(
-    z.object({
-      data: z.unknown().nullable(),
-      message: z.string(),
-      timestamp: z.string(),
-      type: z.enum(["INFO", "WARNING", "ERROR"]),
-    })
-  ),
+const AutofixProgressSchema = Schema.Struct({
+  data: Schema.NullOr(Schema.Unknown),
+  message: Schema.String,
+  timestamp: Schema.String,
+  type: Schema.Literal("INFO", "WARNING", "ERROR"),
 })
 
-export const AutofixRunStepDefaultSchema = AutofixRunStepBaseSchema.extend({
-  type: z.literal("default"),
-  insights: z
-    .array(
-      z.object({
-        change_diff: z.unknown().nullable(),
-        generated_at_memory_index: z.number(),
-        insight: z.string(),
-        justification: z.string(),
-        type: z.literal("insight"),
+const AutofixRunStepBaseFields = {
+  type: Schema.String,
+  key: Schema.String,
+  index: Schema.Number,
+  status: AutofixStatusSchema,
+  title: Schema.String,
+  output_stream: Schema.NullOr(Schema.String),
+  progress: Schema.Array(AutofixProgressSchema),
+}
+
+export const AutofixRunStepDefaultSchema = Schema.Struct({
+  ...AutofixRunStepBaseFields,
+  type: Schema.Literal("default"),
+  insights: Schema.NullOr(
+    Schema.Array(
+      Schema.Struct({
+        change_diff: Schema.NullOr(Schema.Unknown),
+        generated_at_memory_index: Schema.Number,
+        insight: Schema.String,
+        justification: Schema.String,
+        type: Schema.Literal("insight"),
       })
     )
-    .nullable(),
-}).passthrough()
-
-export const AutofixRunStepRootCauseAnalysisSchema =
-  AutofixRunStepBaseSchema.extend({
-    type: z.literal("root_cause_analysis"),
-    causes: z.array(
-      z.object({
-        description: z.string(),
-        id: z.number(),
-        root_cause_reproduction: z.array(
-          z.object({
-            code_snippet_and_analysis: z.string(),
-            is_most_important_event: z.boolean(),
-            relevant_code_file: z
-              .object({
-                file_path: z.string(),
-                repo_name: z.string(),
-              })
-              .nullable(),
-            timeline_item_type: z.string(),
-            title: z.string(),
-          })
-        ),
-      })
-    ),
-  }).passthrough()
-
-export const AutofixRunStepSolutionSchema = AutofixRunStepBaseSchema.extend({
-  type: z.literal("solution"),
-  solution: z.array(
-    z.object({
-      code_snippet_and_analysis: z.string().nullable(),
-      is_active: z.boolean(),
-      is_most_important_event: z.boolean(),
-      relevant_code_file: z.null(),
-      timeline_item_type: z.union([
-        z.literal("internal_code"),
-        z.literal("repro_test"),
-      ]),
-      title: z.string(),
-    })
   ),
-}).passthrough()
-
-export const AutofixRunStepSchema = z.union([
-  AutofixRunStepDefaultSchema,
-  AutofixRunStepRootCauseAnalysisSchema,
-  AutofixRunStepSolutionSchema,
-  AutofixRunStepBaseSchema.passthrough(),
-])
-
-export const AutofixRunStateSchema = z.object({
-  autofix: z
-    .object({
-      run_id: z.number(),
-      request: z.unknown(),
-      updated_at: z.string(),
-      status: AutofixStatusSchema,
-      steps: z.array(AutofixRunStepSchema),
-    })
-    .passthrough()
-    .nullable(),
 })
 
-export const EventAttachmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  size: z.number(),
-  mimetype: z.string(),
-  dateCreated: z.string().datetime(),
-  sha1: z.string(),
-  headers: z.record(z.string(), z.string()).optional(),
-})
+export type AutofixRunStepDefault = typeof AutofixRunStepDefaultSchema.Type
 
-export const EventAttachmentListSchema = z.array(EventAttachmentSchema)
-
-export const TraceMetaSchema = z.object({
-  logs: z.number(),
-  errors: z.number(),
-  performance_issues: z.number(),
-  span_count: z.number(),
-  transaction_child_count_map: z.array(
-    z.object({
-      "transaction.event_id": z.string().nullable(),
-      "count()": z.number(),
-    })
-  ),
-  span_count_map: z.record(z.string(), z.number()),
-})
-
-export const TraceSpanSchema: z.ZodType<any> = z.lazy(() =>
-  z.object({
-    children: z.array(TraceSpanSchema),
-    errors: z.array(z.any()),
-    occurrences: z.array(z.any()),
-    event_id: z.string(),
-    transaction_id: z.string(),
-    project_id: z.union([z.string(), z.number()]),
-    project_slug: z.string(),
-    profile_id: z.string(),
-    profiler_id: z.string(),
-    parent_span_id: z.string().nullable(),
-    start_timestamp: z.number(),
-    end_timestamp: z.number(),
-    measurements: z.record(z.string(), z.number()).optional(),
-    duration: z.number(),
-    transaction: z.string(),
-    is_transaction: z.boolean(),
-    description: z.string(),
-    sdk_name: z.string(),
-    op: z.string(),
-    name: z.string(),
-    event_type: z.string(),
-    additional_attributes: z.record(z.string(), z.any()),
+const RelevantCodeFileSchema = Schema.NullOr(
+  Schema.Struct({
+    file_path: Schema.String,
+    repo_name: Schema.String,
   })
 )
 
-export const TraceIssueSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]).optional(),
-    issue_id: z.union([z.string(), z.number()]).optional(),
-    project_id: z.union([z.string(), z.number()]).optional(),
-    project_slug: z.string().optional(),
-    title: z.string().optional(),
-    culprit: z.string().optional(),
-    type: z.string().optional(),
-    timestamp: z.union([z.string(), z.number()]).optional(),
-  })
-  .passthrough()
+const RootCauseReproductionSchema = Schema.Struct({
+  code_snippet_and_analysis: Schema.String,
+  is_most_important_event: Schema.Boolean,
+  relevant_code_file: RelevantCodeFileSchema,
+  timeline_item_type: Schema.String,
+  title: Schema.String,
+})
 
-export const TraceSchema = z.array(z.union([TraceSpanSchema, TraceIssueSchema]))
+const CauseSchema = Schema.Struct({
+  description: Schema.String,
+  id: Schema.Number,
+  root_cause_reproduction: Schema.Array(RootCauseReproductionSchema),
+})
+
+export const AutofixRunStepRootCauseAnalysisSchema = Schema.Struct({
+  ...AutofixRunStepBaseFields,
+  type: Schema.Literal("root_cause_analysis"),
+  causes: Schema.Array(CauseSchema),
+})
+
+export type AutofixRunStepRootCauseAnalysis = typeof AutofixRunStepRootCauseAnalysisSchema.Type
+
+const SolutionItemSchema = Schema.Struct({
+  code_snippet_and_analysis: Schema.NullOr(Schema.String),
+  is_active: Schema.Boolean,
+  is_most_important_event: Schema.Boolean,
+  relevant_code_file: Schema.Null,
+  timeline_item_type: Schema.Literal("internal_code", "repro_test"),
+  title: Schema.String,
+})
+
+export const AutofixRunStepSolutionSchema = Schema.Struct({
+  ...AutofixRunStepBaseFields,
+  type: Schema.Literal("solution"),
+  solution: Schema.Array(SolutionItemSchema),
+})
+
+export type AutofixRunStepSolution = typeof AutofixRunStepSolutionSchema.Type
+
+const AutofixRunStepBaseSchema = Schema.Struct(AutofixRunStepBaseFields)
+
+export const AutofixRunStepSchema = Schema.Union(
+  AutofixRunStepDefaultSchema,
+  AutofixRunStepRootCauseAnalysisSchema,
+  AutofixRunStepSolutionSchema,
+  AutofixRunStepBaseSchema
+)
+
+export type AutofixRunStep = typeof AutofixRunStepSchema.Type
+
+export const AutofixRunStateSchema = Schema.Struct({
+  autofix: Schema.NullOr(
+    Schema.Struct({
+      run_id: Schema.Number,
+      request: Schema.Unknown,
+      updated_at: Schema.String,
+      status: AutofixStatusSchema,
+      steps: Schema.Array(AutofixRunStepSchema),
+    })
+  ),
+})
+
+export type AutofixRunState = typeof AutofixRunStateSchema.Type
+
+// ============================================================================
+// Event Attachment Schemas
+// ============================================================================
+
+export const EventAttachmentSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  type: Schema.String,
+  size: Schema.Number,
+  mimetype: Schema.String,
+  dateCreated: Schema.String,
+  sha1: Schema.String,
+  headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+})
+
+export type EventAttachment = typeof EventAttachmentSchema.Type
+
+export const EventAttachmentListSchema = Schema.Array(EventAttachmentSchema)
+
+export type EventAttachmentList = typeof EventAttachmentListSchema.Type
+
+// ============================================================================
+// Trace Schemas
+// ============================================================================
+
+export const TraceMetaSchema = Schema.Struct({
+  logs: Schema.Number,
+  errors: Schema.Number,
+  performance_issues: Schema.Number,
+  span_count: Schema.Number,
+  transaction_child_count_map: Schema.Array(
+    Schema.Struct({
+      "transaction.event_id": Schema.NullOr(Schema.String),
+      "count()": Schema.Number,
+    })
+  ),
+  span_count_map: Schema.Record({ key: Schema.String, value: Schema.Number }),
+})
+
+export type TraceMeta = typeof TraceMetaSchema.Type
+
+// TraceSpan is recursive, using suspend
+const TraceSpanStruct = Schema.Struct({
+  children: Schema.Array(Schema.suspend((): Schema.Schema<TraceSpan> => TraceSpanSchema)),
+  errors: Schema.Array(Schema.Unknown),
+  occurrences: Schema.Array(Schema.Unknown),
+  event_id: Schema.String,
+  transaction_id: Schema.String,
+  project_id: StringOrNumber,
+  project_slug: Schema.String,
+  profile_id: Schema.String,
+  profiler_id: Schema.String,
+  parent_span_id: Schema.NullOr(Schema.String),
+  start_timestamp: Schema.Number,
+  end_timestamp: Schema.Number,
+  measurements: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Number })),
+  duration: Schema.Number,
+  transaction: Schema.String,
+  is_transaction: Schema.Boolean,
+  description: Schema.String,
+  sdk_name: Schema.String,
+  op: Schema.String,
+  name: Schema.String,
+  event_type: Schema.String,
+  additional_attributes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+})
+
+export interface TraceSpan extends Schema.Schema.Type<typeof TraceSpanStruct> {}
+
+export const TraceSpanSchema: Schema.Schema<TraceSpan> = TraceSpanStruct
+
+export const TraceIssueSchema = Schema.Struct({
+  id: Schema.optional(StringOrNumber),
+  issue_id: Schema.optional(StringOrNumber),
+  project_id: Schema.optional(StringOrNumber),
+  project_slug: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  culprit: Schema.optional(Schema.String),
+  type: Schema.optional(Schema.String),
+  timestamp: Schema.optional(Schema.Union(Schema.String, Schema.Number)),
+})
+
+export type TraceIssue = typeof TraceIssueSchema.Type
+
+export const TraceSchema = Schema.Array(Schema.Union(TraceSpanSchema, TraceIssueSchema))
+
+export type Trace = typeof TraceSchema.Type
