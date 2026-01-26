@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { SentryApi } from "../../api/client.js"

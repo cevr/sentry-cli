@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Layer, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -34,7 +35,7 @@ export const projectsCreateCommand = Command.make(
       yield* Console.log(`Created project: ${project.slug}`)
       yield* Console.log(`  Name: ${project.name}`)
       yield* Console.log(`  ID: ${project.id}`)
-      if (project.platform) {
+      if (project.platform !== undefined && project.platform !== null) {
         yield* Console.log(`  Platform: ${project.platform}`)
       }
     }).pipe(

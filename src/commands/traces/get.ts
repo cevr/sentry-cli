@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -68,22 +69,22 @@ export const tracesGetCommand = Command.make(
 
         const printSpan = (span: any, depth: number): Effect.Effect<void> =>
           Effect.gen(function* () {
-            if (!span.is_transaction && depth > 3) return // Limit depth for readability
+            if (span.is_transaction !== true && depth > 3) return // Limit depth for readability
 
             const indent = "  ".repeat(depth)
-            const duration = span.duration ? `${span.duration.toFixed(2)}ms` : "?"
+            const duration = span.duration !== undefined && span.duration !== null ? `${span.duration.toFixed(2)}ms` : "?"
 
-            if (span.is_transaction) {
+            if (span.is_transaction === true) {
               yield* Console.log(
-                `${indent}[${span.op}] ${span.transaction || span.description} (${duration})`
+                `${indent}[${span.op}] ${span.transaction ?? span.description} (${duration})`
               )
             } else {
               yield* Console.log(
-                `${indent}[${span.op}] ${span.description || span.name} (${duration})`
+                `${indent}[${span.op}] ${span.description ?? span.name} (${duration})`
               )
             }
 
-            if (span.errors?.length > 0) {
+            if (Array.isArray(span.errors) && span.errors.length > 0) {
               yield* Console.log(`${indent}  Errors: ${span.errors.length}`)
             }
 
@@ -106,8 +107,8 @@ export const tracesGetCommand = Command.make(
             yield* printSpan(rootSpan, 0)
           } else {
             // It's an issue object
-            yield* Console.log(`[issue] ${rootSpan.title || "Unknown issue"}`)
-            if (rootSpan.culprit) {
+            yield* Console.log(`[issue] ${rootSpan.title ?? "Unknown issue"}`)
+            if (rootSpan.culprit !== undefined && rootSpan.culprit !== null) {
               yield* Console.log(`  Culprit: ${rootSpan.culprit}`)
             }
           }

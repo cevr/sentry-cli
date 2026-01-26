@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Command } from "@effect/cli"
 import { BunContext } from "@effect/platform-bun"
 import { Console, Effect, Layer } from "effect"
@@ -80,7 +81,7 @@ const handleError = (error: unknown): Effect.Effect<void> =>
           return
         case "ApiError":
           yield* Console.error(`Error: ${tagged.message}`)
-          if (tagged.status) {
+          if (tagged.status !== undefined) {
             yield* Console.error(`Status: ${tagged.status}`)
           }
           return
@@ -93,7 +94,7 @@ const handleError = (error: unknown): Effect.Effect<void> =>
           return
         case "ApiValidationError":
           yield* Console.error(`Validation error: ${tagged.message}`)
-          if (tagged.details) {
+          if (tagged.details !== undefined) {
             yield* Console.error(`Details: ${JSON.stringify(tagged.details)}`)
           }
           return

@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Layer, Option } from "effect"
 import { FileSystem } from "@effect/platform"

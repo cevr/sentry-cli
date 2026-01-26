@@ -11,7 +11,7 @@ import { SentryApi } from "../api/client.js"
 import { ApiError, ApiValidationError, ConfigError } from "../errors/index.js"
 import { OrgService } from "./org-service.js"
 
-export class TeamService extends Context.Tag("@sentry-cli/TeamService")<
+export class TeamService extends Context.Tag("@cvr/sentry/services/team-service/TeamService")<
   TeamService,
   {
     readonly get: () => Effect.Effect<string, ConfigError | ApiError | ApiValidationError | Terminal.QuitException, Terminal.Terminal>
@@ -38,29 +38,25 @@ export class TeamService extends Context.Tag("@sentry-cli/TeamService")<
 
               // Check option
               const fromOption = Option.getOrUndefined(teamOption)
-              if (fromOption) {
+              if (fromOption !== undefined) {
                 yield* Ref.set(cache, Option.some(fromOption))
                 return fromOption
               }
 
               // Check if we're in an interactive terminal
               if (!process.stdout.isTTY) {
-                return yield* Effect.fail(
-                  new ConfigError({
-                    message: "Team required. Use --team to specify a team.",
-                  })
-                )
+                return yield* new ConfigError({
+                  message: "Team required. Use --team to specify a team.",
+                })
               }
 
               // Get org first, then fetch teams
               const org = yield* orgService.get()
               const teams = yield* api.listTeams(org)
               if (teams.length === 0) {
-                return yield* Effect.fail(
-                  new ConfigError({
-                    message: `No teams found in organization '${org}'.`,
-                  })
-                )
+                return yield* new ConfigError({
+                  message: `No teams found in organization '${org}'.`,
+                })
               }
 
               // Auto-select if only one team

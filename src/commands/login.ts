@@ -41,11 +41,11 @@ export const loginCommand = Command.make(
 
       // If no token provided, prompt for one
       let accessToken = Option.getOrUndefined(token)
-      if (!accessToken) {
+      if (accessToken === undefined || accessToken === "") {
         const tokenProvider = yield* TokenProvider
         accessToken = yield* tokenProvider.promptForToken()
 
-        if (!accessToken) {
+        if (accessToken === "") {
           yield* Console.log("No token provided. Aborting.")
           return
         }
@@ -59,22 +59,22 @@ export const loginCommand = Command.make(
       const newConfig: ConfigData = {
         ...existingConfig,
         accessToken,
-        ...(hostValue ? { host: hostValue } : {}),
-        ...(orgValue ? { defaultOrg: orgValue } : {}),
-        ...(projectValue ? { defaultProject: projectValue } : {}),
+        ...(hostValue !== undefined ? { host: hostValue } : {}),
+        ...(orgValue !== undefined ? { defaultOrg: orgValue } : {}),
+        ...(projectValue !== undefined ? { defaultProject: projectValue } : {}),
       }
 
       yield* configFile.write(newConfig)
       yield* Console.log(`Configuration saved to ${configFile.path}`)
       yield* Console.log("Token saved successfully!")
 
-      if (hostValue) {
+      if (hostValue !== undefined) {
         yield* Console.log(`Host: ${hostValue}`)
       }
-      if (orgValue) {
+      if (orgValue !== undefined) {
         yield* Console.log(`Default org: ${orgValue}`)
       }
-      if (projectValue) {
+      if (projectValue !== undefined) {
         yield* Console.log(`Default project: ${projectValue}`)
       }
     })

@@ -11,7 +11,7 @@ const TOKEN_URL = "https://sentry.io/settings/account/api/auth-tokens/"
  * The promptForToken method may require Terminal context for interactive prompts.
  * Test implementations can return Effect.succeed with no additional context.
  */
-export class TokenProvider extends Context.Tag("TokenProvider")<
+export class TokenProvider extends Context.Tag("@cvr/sentry/services/token-provider/TokenProvider")<
   TokenProvider,
   {
     readonly promptForToken: () => Effect.Effect<string, Terminal.QuitException, Terminal.Terminal>

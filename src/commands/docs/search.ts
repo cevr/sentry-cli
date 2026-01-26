@@ -30,7 +30,7 @@ export const docsSearchCommand = Command.make(
         query,
         maxResults: Math.min(Math.max(limit, 1), 10),
       }
-      if (guideValue) {
+      if (guideValue !== undefined) {
         requestBody.guide = guideValue
       }
 
@@ -75,7 +75,7 @@ export const docsSearchCommand = Command.make(
         error?: string
       }
 
-      if (data.error) {
+      if (data.error !== undefined) {
         yield* Console.error(`Search error: ${data.error}`)
         return
       }
@@ -86,7 +86,7 @@ export const docsSearchCommand = Command.make(
       }
 
       yield* Console.log(`Documentation Search Results for "${query}"`)
-      if (requestBody.guide) {
+      if (requestBody.guide !== undefined) {
         yield* Console.log(`Guide: ${requestBody.guide}`)
       }
       yield* Console.log("")

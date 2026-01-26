@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -49,13 +50,13 @@ export const issuesEventsCommand = Command.make(
         yield* Console.log(`    Title: ${event.title}`)
         yield* Console.log(`    Type: ${String(event.type)}`)
         // dateCreated is only present on some event types
-        if ("dateCreated" in event && event.dateCreated) {
+        if ("dateCreated" in event && event.dateCreated !== undefined && event.dateCreated !== null) {
           yield* Console.log(`    Date: ${event.dateCreated}`)
         }
-        if (event.message) {
+        if (event.message !== undefined && event.message !== null) {
           yield* Console.log(`    Message: ${event.message}`)
         }
-        if (event.platform) {
+        if (event.platform !== undefined && event.platform !== null) {
           yield* Console.log(`    Platform: ${event.platform}`)
         }
         yield* Console.log("")

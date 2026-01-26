@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -43,7 +44,7 @@ export const issuesSearchCommand = Command.make(
         return
       }
 
-      yield* Console.log(`Issues in ${organizationSlug}${projectSlug ? `/${projectSlug}` : ""}:`)
+      yield* Console.log(`Issues in ${organizationSlug}${projectSlug !== undefined ? `/${projectSlug}` : ""}:`)
       yield* Console.log("")
 
       for (const issue of issues) {

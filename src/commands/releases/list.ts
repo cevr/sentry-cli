@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Command } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -25,7 +26,7 @@ export const releasesListCommand = Command.make(
       }
 
       yield* Console.log(
-        `Releases in ${organizationSlug}${projectSlug ? `/${projectSlug}` : ""}:`
+        `Releases in ${organizationSlug}${projectSlug !== undefined ? `/${projectSlug}` : ""}:`
       )
       yield* Console.log("")
 
@@ -33,19 +34,19 @@ export const releasesListCommand = Command.make(
         yield* Console.log(`  ${release.shortVersion}`)
         yield* Console.log(`    Version: ${release.version}`)
         yield* Console.log(`    Created: ${release.dateCreated}`)
-        if (release.dateReleased) {
+        if (release.dateReleased !== undefined && release.dateReleased !== null) {
           yield* Console.log(`    Released: ${release.dateReleased}`)
         }
         yield* Console.log(`    New issues: ${release.newGroups}`)
 
-        if (release.lastCommit) {
+        if (release.lastCommit !== undefined && release.lastCommit !== null) {
           yield* Console.log(`    Last commit: ${release.lastCommit.message.split("\n")[0]}`)
           yield* Console.log(
             `      by ${release.lastCommit.author.name} <${release.lastCommit.author.email}>`
           )
         }
 
-        if (release.lastDeploy) {
+        if (release.lastDeploy !== undefined && release.lastDeploy !== null) {
           yield* Console.log(`    Last deploy: ${release.lastDeploy.environment}`)
         }
 

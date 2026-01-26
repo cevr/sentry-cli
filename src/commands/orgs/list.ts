@@ -26,10 +26,10 @@ export const orgsListCommand = Command.make("list", { query: queryOption }, ({ q
     for (const org of organizations) {
       yield* Console.log(`  ${org.slug}`)
       yield* Console.log(`    Name: ${org.name}`)
-      if (org.links?.organizationUrl) {
+      if (org.links?.organizationUrl !== undefined) {
         yield* Console.log(`    URL: ${org.links.organizationUrl}`)
       }
-      if (org.links?.regionUrl) {
+      if (org.links?.regionUrl !== undefined) {
         yield* Console.log(`    Region: ${org.links.regionUrl}`)
       }
       yield* Console.log("")

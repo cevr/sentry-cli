@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -48,7 +49,7 @@ export const issuesAnalyzeCommand = Command.make(
           issueId: issue,
         })
 
-        if (!state.autofix) {
+        if (state.autofix === null) {
           yield* Console.log("No autofix data available.")
           return
         }
@@ -73,7 +74,7 @@ export const issuesAnalyzeCommand = Command.make(
 
             if (step.type === "root_cause_analysis") {
               const rootCauseStep = step as AutofixRunStepRootCauseAnalysis
-              if (rootCauseStep.causes) {
+              if (rootCauseStep.causes !== undefined && rootCauseStep.causes.length > 0) {
                 yield* Console.log("")
                 yield* Console.log("Root Causes:")
                 for (const cause of rootCauseStep.causes) {
@@ -84,7 +85,7 @@ export const issuesAnalyzeCommand = Command.make(
 
             if (step.type === "default") {
               const defaultStep = step as AutofixRunStepDefault
-              if (defaultStep.insights) {
+              if (defaultStep.insights !== undefined && defaultStep.insights !== null && defaultStep.insights.length > 0) {
                 yield* Console.log("")
                 yield* Console.log("Insights:")
                 for (const insight of defaultStep.insights) {

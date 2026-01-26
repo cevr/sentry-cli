@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -25,7 +26,7 @@ export const issuesGetCommand = Command.make(
       yield* Console.log(`Title: ${issueData.title}`)
       yield* Console.log("")
       yield* Console.log(`Status: ${issueData.status}`)
-      if (issueData.substatus) {
+      if (issueData.substatus !== undefined && issueData.substatus !== null) {
         yield* Console.log(`Substatus: ${issueData.substatus}`)
       }
       yield* Console.log(`Type: ${issueData.type}`)
@@ -38,7 +39,7 @@ export const issuesGetCommand = Command.make(
       yield* Console.log("")
       yield* Console.log(`Culprit: ${issueData.culprit}`)
 
-      if (issueData.assignedTo) {
+      if (issueData.assignedTo !== undefined && issueData.assignedTo !== null) {
         const assigned =
           typeof issueData.assignedTo === "string"
             ? issueData.assignedTo
@@ -55,7 +56,7 @@ export const issuesGetCommand = Command.make(
         issueId: issue,
       }).pipe(Effect.catchAll(() => Effect.succeed(null)))
 
-      if (event) {
+      if (event !== null) {
         yield* Console.log("")
         yield* Console.log("Latest Event:")
         yield* Console.log(`  ID: ${event.id}`)
@@ -65,25 +66,25 @@ export const issuesGetCommand = Command.make(
         const exceptionEntry = event.entries.find(
           (e) => e.type === "exception"
         )
-        if (exceptionEntry && exceptionEntry.type === "exception") {
+        if (exceptionEntry !== undefined && exceptionEntry.type === "exception") {
           const data = exceptionEntry.data as { values?: Array<{ type?: string | null; value?: string | null; stacktrace?: { frames?: Array<{ filename?: string | null; absPath?: string | null; function?: string | null; lineNo?: number | null }> } }> }
-          const values = data?.values || []
+          const values = data?.values ?? []
           const firstException = values[0]
-          if (firstException) {
+          if (firstException !== undefined) {
             yield* Console.log("")
             yield* Console.log("Exception:")
             yield* Console.log(`  Type: ${firstException.type ?? "Unknown"}`)
             yield* Console.log(`  Value: ${firstException.value ?? ""}`)
 
             // Show top frames of stack trace
-            const frames = firstException.stacktrace?.frames || []
+            const frames = firstException.stacktrace?.frames ?? []
             if (frames.length > 0) {
               yield* Console.log("")
               yield* Console.log("Stack trace (top frames):")
               const topFrames = frames.slice(-5).reverse()
               for (const frame of topFrames) {
-                const file = frame.filename || frame.absPath || "unknown"
-                const func = frame.function || "<anonymous>"
+                const file = frame.filename ?? frame.absPath ?? "unknown"
+                const func = frame.function ?? "<anonymous>"
                 const line = frame.lineNo ?? "?"
                 yield* Console.log(`    at ${func} (${file}:${line})`)
               }

@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Command } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -27,7 +28,7 @@ export const projectsListCommand = Command.make(
       for (const project of projects) {
         yield* Console.log(`  ${project.slug}`)
         yield* Console.log(`    Name: ${project.name}`)
-        if (project.platform) {
+        if (project.platform !== undefined && project.platform !== null) {
           yield* Console.log(`    Platform: ${project.platform}`)
         }
         yield* Console.log(`    ID: ${project.id}`)

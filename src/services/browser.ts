@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect"
 
-export class Browser extends Context.Tag("Browser")<
+export class Browser extends Context.Tag("@cvr/sentry/services/browser")<
   Browser,
   {
     readonly open: (url: string) => Effect.Effect<void>

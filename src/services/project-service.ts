@@ -12,7 +12,7 @@ import { SentryConfig } from "../config/index.js"
 import { ApiError, ApiValidationError, ConfigError } from "../errors/index.js"
 import { OrgService } from "./org-service.js"
 
-export class ProjectService extends Context.Tag("@sentry-cli/ProjectService")<
+export class ProjectService extends Context.Tag("@cvr/sentry/services/project-service/ProjectService")<
   ProjectService,
   {
     readonly get: () => Effect.Effect<string, ConfigError | ApiError | ApiValidationError | Terminal.QuitException, Terminal.Terminal>
@@ -40,35 +40,31 @@ export class ProjectService extends Context.Tag("@sentry-cli/ProjectService")<
 
               // Check option, then config
               const fromOption = Option.getOrUndefined(projectOption)
-              if (fromOption) {
+              if (fromOption !== undefined) {
                 yield* Ref.set(cache, Option.some(fromOption))
                 return fromOption
               }
 
               const fromConfig = Option.getOrUndefined(config.defaultProject)
-              if (fromConfig) {
+              if (fromConfig !== undefined) {
                 yield* Ref.set(cache, Option.some(fromConfig))
                 return fromConfig
               }
 
               // Check if we're in an interactive terminal
               if (!process.stdout.isTTY) {
-                return yield* Effect.fail(
-                  new ConfigError({
-                    message: "Project required. Use --project or set defaultProject in config.",
-                  })
-                )
+                return yield* new ConfigError({
+                  message: "Project required. Use --project or set defaultProject in config.",
+                })
               }
 
               // Get org first, then fetch projects
               const org = yield* orgService.get()
               const projects = yield* api.listProjects(org)
               if (projects.length === 0) {
-                return yield* Effect.fail(
-                  new ConfigError({
-                    message: `No projects found in organization '${org}'.`,
-                  })
-                )
+                return yield* new ConfigError({
+                  message: `No projects found in organization '${org}'.`,
+                })
               }
 
               // Auto-select if only one project

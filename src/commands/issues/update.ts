@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -35,7 +36,7 @@ export const issuesUpdateCommand = Command.make(
       const statusValue = Option.getOrUndefined(status)
       const assignValue = Option.getOrUndefined(assign)
 
-      if (!statusValue && !assignValue) {
+      if (statusValue === undefined && assignValue === undefined) {
         yield* Console.error("No updates specified. Use --status or --assign.")
         return
       }
@@ -49,7 +50,7 @@ export const issuesUpdateCommand = Command.make(
 
       yield* Console.log(`Updated issue: ${updated.shortId}`)
       yield* Console.log(`  Status: ${updated.status}`)
-      if (updated.assignedTo) {
+      if (updated.assignedTo !== undefined && updated.assignedTo !== null) {
         const assigned =
           typeof updated.assignedTo === "string"
             ? updated.assignedTo

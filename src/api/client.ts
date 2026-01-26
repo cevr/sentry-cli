@@ -106,7 +106,7 @@ function getTraceUrl(
   return `https://${host}/organizations/${organizationSlug}/explore/traces/trace/${traceId}`
 }
 
-export class SentryApi extends Context.Tag("@sentry-cli/Api")<
+export class SentryApi extends Context.Tag("@cvr/sentry/api/client/SentryApi")<
   SentryApi,
   {
     readonly host: string
@@ -262,7 +262,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         options: RequestInit = {},
         requestHost?: string
       ) {
-        const url = requestHost
+        const url = requestHost !== undefined
           ? `https://${requestHost}/api/0${path}`
           : `${apiPrefix}${path}`
 
@@ -272,7 +272,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         }
 
         const token = Redacted.value(accessToken)
-        if (token) {
+        if (token !== "") {
           headers.Authorization = `Bearer ${token}`
         }
 
@@ -295,48 +295,43 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
             catch: () => new ApiError({ message: "Failed to read error response" }),
           })
 
-          let parsed: unknown
-          try {
-            parsed = JSON.parse(errorText)
-          } catch {
-            // Not JSON
-          }
+          const parsed = Option.fromNullable(
+            (() => {
+              try {
+                return JSON.parse(errorText) as unknown
+              } catch {
+                return null
+              }
+            })()
+          )
 
-          if (parsed) {
-            const result = decodeEither(ApiErrorSchema)(parsed)
+          if (Option.isSome(parsed)) {
+            const result = decodeEither(ApiErrorSchema)(parsed.value)
             if (Either.isRight(result)) {
               if (response.status === 404) {
-                return yield* Effect.fail(
-                  new ApiError({
-                    message: result.right.detail,
-                    status: 404,
-                  })
-                )
-              }
-              return yield* Effect.fail(
-                new ApiError({
+                return yield* new ApiError({
                   message: result.right.detail,
-                  status: response.status,
+                  status: 404,
                 })
-              )
+              }
+              return yield* new ApiError({
+                message: result.right.detail,
+                status: response.status,
+              })
             }
           }
 
           if (response.status === 404) {
-            return yield* Effect.fail(
-              new ApiError({
-                message: `Not found: ${path}`,
-                status: 404,
-              })
-            )
+            return yield* new ApiError({
+              message: `Not found: ${path}`,
+              status: 404,
+            })
           }
 
-          return yield* Effect.fail(
-            new ApiError({
-              message: `API request failed: ${response.statusText}\n${errorText}`,
-              status: response.status,
-            })
-          )
+          return yield* new ApiError({
+            message: `API request failed: ${response.statusText}\n${errorText}`,
+            status: response.status,
+          })
         }
 
         return response
@@ -372,7 +367,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         function* (params?: { query?: string }) {
           const queryParams = new URLSearchParams()
           queryParams.set("per_page", "25")
-          if (params?.query) {
+          if (params?.query !== undefined && params.query !== "") {
             queryParams.set("query", params.query)
           }
           const path = `/organizations/?${queryParams.toString()}`
@@ -400,7 +395,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
               }),
           }).pipe(Effect.catchAll(() => Effect.succeed(null)))
 
-          if (regionsResult) {
+          if (regionsResult !== null) {
             const regionData = decodeEither(UserRegionsSchema)(regionsResult)
             if (Either.isRight(regionData)) {
               const allOrgs = yield* Effect.all(
@@ -434,7 +429,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
       ) {
         const queryParams = new URLSearchParams()
         queryParams.set("per_page", "25")
-        if (params?.query) {
+        if (params?.query !== undefined && params.query !== "") {
           queryParams.set("query", params.query)
         }
         const body = yield* requestJSON(
@@ -463,7 +458,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
       ) {
         const queryParams = new URLSearchParams()
         queryParams.set("per_page", "25")
-        if (params?.query) {
+        if (params?.query !== undefined && params.query !== "") {
           queryParams.set("query", params.query)
         }
         const body = yield* requestJSON(
@@ -490,7 +485,7 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           platform?: string | null
         }) {
           const createData: Record<string, any> = { name: params.name }
-          if (params.platform) {
+          if (params.platform !== undefined && params.platform !== null) {
             createData.platform = params.platform
           }
           const body = yield* requestJSON(
@@ -513,9 +508,9 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           platform?: string | null
         }) {
           const updateData: Record<string, any> = {}
-          if (params.name) updateData.name = params.name
-          if (params.slug) updateData.slug = params.slug
-          if (params.platform) updateData.platform = params.platform
+          if (params.name !== undefined && params.name !== null) updateData.name = params.name
+          if (params.slug !== undefined && params.slug !== null) updateData.slug = params.slug
+          if (params.platform !== undefined && params.platform !== null) updateData.platform = params.platform
 
           const body = yield* requestJSON(
             `/projects/${params.organizationSlug}/${params.projectSlug}/`,
@@ -561,16 +556,16 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           query?: string
         }) {
           const searchQuery = new URLSearchParams()
-          if (params.query) {
+          if (params.query !== undefined && params.query !== "") {
             searchQuery.set("query", params.query)
           }
 
-          const path = params.projectSlug
+          const path = params.projectSlug !== undefined && params.projectSlug !== ""
             ? `/projects/${params.organizationSlug}/${params.projectSlug}/releases/`
             : `/organizations/${params.organizationSlug}/releases/`
 
           const body = yield* requestJSON(
-            searchQuery.toString() ? `${path}?${searchQuery.toString()}` : path
+            searchQuery.toString() !== "" ? `${path}?${searchQuery.toString()}` : path
           )
           return yield* decodeApi(ReleaseListSchema)(body)
         }
@@ -584,18 +579,18 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
         limit?: number
       }) {
         const sentryQuery: string[] = []
-        if (params.query) {
+        if (params.query !== undefined && params.query !== null && params.query !== "") {
           sentryQuery.push(params.query)
         }
 
         const queryParams = new URLSearchParams()
         queryParams.set("per_page", String(params.limit ?? 10))
-        if (params.sortBy) queryParams.set("sort", params.sortBy)
+        if (params.sortBy !== undefined) queryParams.set("sort", params.sortBy)
         queryParams.set("statsPeriod", "24h")
         queryParams.set("query", sentryQuery.join(" "))
         queryParams.append("collapse", "unhandled")
 
-        const apiUrl = params.projectSlug
+        const apiUrl = params.projectSlug !== undefined && params.projectSlug !== ""
           ? `/projects/${params.organizationSlug}/${params.projectSlug}/issues/?${queryParams.toString()}`
           : `/organizations/${params.organizationSlug}/issues/?${queryParams.toString()}`
 
@@ -632,13 +627,13 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           statsPeriod?: string
         }) {
           const queryParams = new URLSearchParams()
-          if (params.query) queryParams.append("query", params.query)
-          if (params.limit) queryParams.append("per_page", String(params.limit))
-          if (params.sort) queryParams.append("sort", params.sort)
-          if (params.statsPeriod) queryParams.append("statsPeriod", params.statsPeriod)
+          if (params.query !== undefined && params.query !== "") queryParams.append("query", params.query)
+          if (params.limit !== undefined) queryParams.append("per_page", String(params.limit))
+          if (params.sort !== undefined && params.sort !== "") queryParams.append("sort", params.sort)
+          if (params.statsPeriod !== undefined && params.statsPeriod !== "") queryParams.append("statsPeriod", params.statsPeriod)
 
           const query = queryParams.toString()
-          const url = `/organizations/${params.organizationSlug}/issues/${params.issueId}/events/${query ? `?${query}` : ""}`
+          const url = `/organizations/${params.organizationSlug}/issues/${params.issueId}/events/${query !== "" ? `?${query}` : ""}`
 
           const body = yield* requestJSON(url)
           return yield* decodeApi(EventListSchema)(body)
@@ -674,13 +669,11 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
             (att) => att.id === params.attachmentId
           )
 
-          if (!attachment) {
-            return yield* Effect.fail(
-              new ApiError({
-                message: `Attachment with ID ${params.attachmentId} not found for event ${params.eventId}`,
-                status: 404,
-              })
-            )
+          if (attachment === undefined) {
+            return yield* new ApiError({
+              message: `Attachment with ID ${params.attachmentId} not found for event ${params.eventId}`,
+              status: 404,
+            })
           }
 
           const downloadUrl = `/projects/${params.organizationSlug}/${params.projectSlug}/events/${params.eventId}/attachments/${params.attachmentId}/?download=1`
@@ -782,18 +775,18 @@ export class SentryApi extends Context.Tag("@sentry-cli/Api")<
           queryParams.set("query", params.query)
           queryParams.set("dataset", params.dataset ?? "spans")
 
-          if (params.statsPeriod) {
+          if (params.statsPeriod !== undefined && params.statsPeriod !== "") {
             queryParams.set("statsPeriod", params.statsPeriod)
-          } else if (params.start && params.end) {
+          } else if (params.start !== undefined && params.start !== "" && params.end !== undefined && params.end !== "") {
             queryParams.set("start", params.start)
             queryParams.set("end", params.end)
           }
 
-          if (params.projectId) {
+          if (params.projectId !== undefined && params.projectId !== "") {
             queryParams.set("project", params.projectId)
           }
 
-          if (params.sort) {
+          if (params.sort !== undefined && params.sort !== "") {
             queryParams.set("sort", params.sort)
           }
 

@@ -10,7 +10,7 @@ import { SentryApi } from "../api/client.js"
 import { SentryConfig } from "../config/index.js"
 import { ApiError, ApiValidationError, ConfigError } from "../errors/index.js"
 
-export class OrgService extends Context.Tag("@sentry-cli/OrgService")<
+export class OrgService extends Context.Tag("@cvr/sentry/services/org-service/OrgService")<
   OrgService,
   {
     readonly get: () => Effect.Effect<string, ConfigError | ApiError | ApiValidationError | Terminal.QuitException, Terminal.Terminal>
@@ -37,32 +37,28 @@ export class OrgService extends Context.Tag("@sentry-cli/OrgService")<
 
               // Check option, then config
               const fromOption = Option.getOrUndefined(orgOption)
-              if (fromOption) {
+              if (fromOption !== undefined) {
                 yield* Ref.set(cache, Option.some(fromOption))
                 return fromOption
               }
 
               const fromConfig = Option.getOrUndefined(config.defaultOrg)
-              if (fromConfig) {
+              if (fromConfig !== undefined) {
                 yield* Ref.set(cache, Option.some(fromConfig))
                 return fromConfig
               }
 
               // Check if we're in an interactive terminal
               if (!process.stdout.isTTY) {
-                return yield* Effect.fail(
-                  new ConfigError({
-                    message: "Organization required. Use --org or set defaultOrg in config.",
-                  })
-                )
+                return yield* new ConfigError({
+                  message: "Organization required. Use --org or set defaultOrg in config.",
+                })
               }
 
               // Fetch orgs and prompt
               const orgs = yield* api.listOrganizations()
               if (orgs.length === 0) {
-                return yield* Effect.fail(
-                  new ConfigError({ message: "No organizations found for this account." })
-                )
+                return yield* new ConfigError({ message: "No organizations found for this account." })
               }
 
               // Auto-select if only one org

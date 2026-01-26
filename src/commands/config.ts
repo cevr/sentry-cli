@@ -15,7 +15,7 @@ const configGetCommand = Command.make("get", { key: keyArg }, ({ key }) =>
     if (Option.isNone(key)) {
       // Show all config
       yield* Console.log("Current configuration:")
-      yield* Console.log(`  accessToken: ${config.accessToken ? "***" : "(not set)"}`)
+      yield* Console.log(`  accessToken: ${config.accessToken !== undefined ? "***" : "(not set)"}`)
       yield* Console.log(`  host: ${config.host ?? "sentry.io"}`)
       yield* Console.log(`  defaultOrg: ${config.defaultOrg ?? "(not set)"}`)
       yield* Console.log(`  defaultProject: ${config.defaultProject ?? "(not set)"}`)
@@ -28,7 +28,7 @@ const configGetCommand = Command.make("get", { key: keyArg }, ({ key }) =>
     switch (k) {
       case "accessToken":
       case "token":
-        yield* Console.log(config.accessToken ? "***" : "(not set)")
+        yield* Console.log(config.accessToken !== undefined ? "***" : "(not set)")
         break
       case "host":
         yield* Console.log(config.host ?? "sentry.io")
@@ -92,7 +92,7 @@ const configListCommand = Command.make("list", {}, () =>
     const config = yield* configFile.read()
 
     yield* Console.log("Configuration:")
-    yield* Console.log(`  accessToken: ${config.accessToken ? "***" : "(not set)"}`)
+    yield* Console.log(`  accessToken: ${config.accessToken !== undefined ? "***" : "(not set)"}`)
     yield* Console.log(`  host: ${config.host ?? "sentry.io"}`)
     yield* Console.log(`  defaultOrg: ${config.defaultOrg ?? "(not set)"}`)
     yield* Console.log(`  defaultProject: ${config.defaultProject ?? "(not set)"}`)

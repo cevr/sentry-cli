@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 /**
  * CLI Test Infrastructure
  *
@@ -34,7 +35,7 @@ export interface ServiceCall {
   result?: unknown
 }
 
-export class CallRecorder extends Context.Tag("@test/CallRecorder")<
+export class CallRecorder extends Context.Tag("@cvr/sentry/tests/helpers/test-cli/CallRecorder")<
   CallRecorder,
   {
     readonly record: (call: ServiceCall) => Effect.Effect<void>
@@ -60,7 +61,7 @@ export class CallRecorder extends Context.Tag("@test/CallRecorder")<
 // Console Capture
 // ============================================================================
 
-export class ConsoleOutput extends Context.Tag("@test/ConsoleOutput")<
+export class ConsoleOutput extends Context.Tag("@cvr/sentry/tests/helpers/test-cli/ConsoleOutput")<
   ConsoleOutput,
   {
     readonly stdout: Ref.Ref<string[]>
@@ -129,14 +130,14 @@ export const createMockSentryConfig = () =>
       const config = yield* configFile.read()
 
       return SentryConfig.of({
-        accessToken: config.accessToken
+        accessToken: config.accessToken !== undefined
           ? Option.some(Redacted.make(config.accessToken))
           : Option.none(),
         host: config.host ?? "sentry.io",
-        defaultOrg: config.defaultOrg
+        defaultOrg: config.defaultOrg !== undefined
           ? Option.some(config.defaultOrg)
           : Option.none(),
-        defaultProject: config.defaultProject
+        defaultProject: config.defaultProject !== undefined
           ? Option.some(config.defaultProject)
           : Option.none(),
       })
@@ -187,7 +188,7 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
         host: "sentry.io",
 
         getAuthenticatedUser: () => {
-          if (options.failWhoami) {
+          if (options.failWhoami === true) {
             return Effect.fail(new ApiError({ message: "Unauthorized", status: 401 }))
           }
           return recordCall<User>("getAuthenticatedUser", undefined, options.whoami ?? {
@@ -201,7 +202,7 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
           recordCall("listOrganizations", params, (options.organizations ?? []).map(org => ({
             id: "1",
             ...org,
-            links: org.links ? {
+            links: org.links !== undefined ? {
               organizationUrl: org.links.organizationUrl ?? "https://sentry.io",
               regionUrl: org.links.regionUrl,
             } : undefined,
@@ -213,7 +214,7 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
             id: "1",
             slug: org?.slug ?? organizationSlug,
             name: org?.name ?? "Test Org",
-            links: org?.links ? {
+            links: org?.links !== undefined ? {
               organizationUrl: org.links.organizationUrl ?? "https://sentry.io",
               regionUrl: org.links.regionUrl,
             } : undefined,
@@ -294,7 +295,7 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
             count: issue.count ?? "1",
             userCount: "1",
             permalink: `https://sentry.io/issues/${issue.id}/`,
-            project: issue.project ? { id: "1", slug: issue.project.slug, name: "Test Project" } : { id: "1", slug: "test-project", name: "Test Project" },
+            project: issue.project !== undefined ? { id: "1", slug: issue.project.slug, name: "Test Project" } : { id: "1", slug: "test-project", name: "Test Project" },
             culprit: issue.culprit ?? "unknown",
             type: "error",
           }))),
@@ -311,7 +312,7 @@ export const createMockSentryApi = (options: MockApiOptions = {}) =>
             count: issue?.count ?? "1",
             userCount: "1",
             permalink: `https://sentry.io/issues/${params.issueId}/`,
-            project: issue?.project ? { id: "1", slug: issue.project.slug, name: "Test Project" } : { id: "1", slug: "test-project", name: "Test Project" },
+            project: issue?.project !== undefined ? { id: "1", slug: issue.project.slug, name: "Test Project" } : { id: "1", slug: "test-project", name: "Test Project" },
             culprit: issue?.culprit ?? "unknown",
             type: "error",
           })
@@ -455,9 +456,7 @@ const createMockBrowser = () =>
 
       return Browser.of({
         open: (url) =>
-          Effect.gen(function* () {
-            yield* recorder.record({ service: "Browser", method: "open", args: { url } })
-          }),
+          recorder.record({ service: "Browser", method: "open", args: { url } }),
       })
     })
   )
@@ -591,16 +590,16 @@ export const expectCall = (
 ): ServiceCall => {
   const found = calls.find((c) => {
     if (c.service !== service || c.method !== method) return false
-    if (!matchArgs) return true
+    if (matchArgs === undefined) return true
 
     const args = c.args as Record<string, unknown> | undefined
-    if (!args) return false
+    if (args === undefined) return false
 
     return Object.entries(matchArgs).every(([k, v]) => args[k] === v)
   })
 
-  if (!found) {
-    const argsStr = matchArgs ? ` with args matching ${JSON.stringify(matchArgs)}` : ""
+  if (found === undefined) {
+    const argsStr = matchArgs !== undefined ? ` with args matching ${JSON.stringify(matchArgs)}` : ""
     throw new Error(
       `Expected call to ${service}.${method}${argsStr} but not found.\nCalls: ${JSON.stringify(calls, null, 2)}`
     )
@@ -617,7 +616,7 @@ export const expectNoCall = (
   method: string
 ): void => {
   const found = calls.find((c) => c.service === service && c.method === method)
-  if (found) {
+  if (found !== undefined) {
     throw new Error(
       `Expected no call to ${service}.${method} but found: ${JSON.stringify(found)}`
     )
@@ -642,9 +641,9 @@ export const expectSequence = (
 
       if (call.service !== exp.service || call.method !== exp.method) continue
 
-      if (exp.match) {
+      if (exp.match !== undefined) {
         const args = call.args as Record<string, unknown> | undefined
-        if (!args) continue
+        if (args === undefined) continue
         if (!Object.entries(exp.match).every(([k, v]) => args[k] === v)) continue
       }
 
@@ -653,7 +652,7 @@ export const expectSequence = (
     }
 
     if (!found) {
-      const matchStr = exp.match ? ` with ${JSON.stringify(exp.match)}` : ""
+      const matchStr = exp.match !== undefined ? ` with ${JSON.stringify(exp.match)}` : ""
       throw new Error(
         `Expected call to ${exp.service}.${exp.method}${matchStr} not found in sequence.\n` +
         `Remaining calls: ${JSON.stringify(calls.slice(callIndex - 1), null, 2)}`

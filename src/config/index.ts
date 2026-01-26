@@ -11,7 +11,7 @@ export const ConfigData = Schema.Struct({
 
 export type ConfigData = typeof ConfigData.Type
 
-export class ConfigFile extends Context.Tag("@sentry-cli/ConfigFile")<
+export class ConfigFile extends Context.Tag("@cvr/sentry/config/index/ConfigFile")<
   ConfigFile,
   {
     readonly read: () => Effect.Effect<ConfigData, ConfigError>
@@ -37,13 +37,12 @@ export class ConfigFile extends Context.Tag("@sentry-cli/ConfigFile")<
         }
 
         const content = yield* fs.readFileString(configPath).pipe(
-          Effect.catchAll((e) =>
-            Effect.fail(
+          Effect.mapError(
+            (e) =>
               new ConfigError({
                 message: `Failed to read config file: ${configPath}`,
                 cause: e,
               })
-            )
           )
         )
 
@@ -57,38 +56,35 @@ export class ConfigFile extends Context.Tag("@sentry-cli/ConfigFile")<
         })
 
         return yield* Schema.decodeUnknown(ConfigData)(parsed).pipe(
-          Effect.catchAll((e) =>
-            Effect.fail(
+          Effect.mapError(
+            (e) =>
               new ConfigError({
                 message: `Invalid config file format: ${configPath}`,
                 cause: e,
               })
-            )
           )
         )
       })
 
       const write = Effect.fn("ConfigFile.write")(function* (data: ConfigData) {
         yield* fs.makeDirectory(configDir, { recursive: true }).pipe(
-          Effect.catchAll((e) =>
-            Effect.fail(
+          Effect.mapError(
+            (e) =>
               new ConfigError({
                 message: `Failed to create config directory: ${configDir}`,
                 cause: e,
               })
-            )
           )
         )
 
         const content = JSON.stringify(data, null, 2)
         yield* fs.writeFileString(configPath, content).pipe(
-          Effect.catchAll((e) =>
-            Effect.fail(
+          Effect.mapError(
+            (e) =>
               new ConfigError({
                 message: `Failed to write config file: ${configPath}`,
                 cause: e,
               })
-            )
           )
         )
       })
@@ -102,7 +98,7 @@ export class ConfigFile extends Context.Tag("@sentry-cli/ConfigFile")<
   )
 }
 
-export class SentryConfig extends Context.Tag("@sentry-cli/Config")<
+export class SentryConfig extends Context.Tag("@cvr/sentry/config/index/SentryConfig")<
   SentryConfig,
   {
     readonly accessToken: Option.Option<Redacted.Redacted<string>>
@@ -122,18 +118,18 @@ export class SentryConfig extends Context.Tag("@sentry-cli/Config")<
       const envToken = process.env.SENTRY_ACCESS_TOKEN
       const envHost = process.env.SENTRY_HOST || process.env.SENTRY_URL
 
-      const accessToken = envToken || fileConfig.accessToken
-      const host = envHost || fileConfig.host || "sentry.io"
+      const accessToken = envToken ?? fileConfig.accessToken
+      const host = envHost ?? fileConfig.host ?? "sentry.io"
       const defaultOrg = fileConfig.defaultOrg
       const defaultProject = fileConfig.defaultProject
 
       return SentryConfig.of({
-        accessToken: accessToken
+        accessToken: accessToken !== undefined
           ? Option.some(Redacted.make(accessToken))
           : Option.none(),
         host,
-        defaultOrg: defaultOrg ? Option.some(defaultOrg) : Option.none(),
-        defaultProject: defaultProject
+        defaultOrg: defaultOrg !== undefined ? Option.some(defaultOrg) : Option.none(),
+        defaultProject: defaultProject !== undefined
           ? Option.some(defaultProject)
           : Option.none(),
       })

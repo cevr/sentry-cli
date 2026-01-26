@@ -1,3 +1,4 @@
+// @effect-diagnostics strictEffectProvide:off
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { SentryApi } from "../../api/client.js"
@@ -44,7 +45,7 @@ export const projectsUpdateCommand = Command.make(
       const slugValue = Option.getOrUndefined(slug)
       const platformValue = Option.getOrUndefined(platform)
 
-      if (!nameValue && !slugValue && !platformValue) {
+      if (nameValue === undefined && slugValue === undefined && platformValue === undefined) {
         yield* Console.error("No updates specified. Use --name, --slug, or --platform.")
         return
       }
@@ -60,7 +61,7 @@ export const projectsUpdateCommand = Command.make(
       yield* Console.log(`Updated project: ${updated.slug}`)
       yield* Console.log(`  Name: ${updated.name}`)
       yield* Console.log(`  ID: ${updated.id}`)
-      if (updated.platform) {
+      if (updated.platform !== undefined && updated.platform !== null) {
         yield* Console.log(`  Platform: ${updated.platform}`)
       }
     }).pipe(Effect.provide(OrgService.make(org)))
