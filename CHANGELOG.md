@@ -1,5 +1,15 @@
 # @cvr/sentry
 
+## 0.1.2
+
+### Patch Changes
+
+- [`42ff372`](https://github.com/cevr/sentry-cli/commit/42ff3729b96f10c4e3af8399954c14cdf52639b9) Thanks [@cevr](https://github.com/cevr)! - Migrate API validation from Zod to Effect Schema
+
+  - Replace all Zod schemas with Effect Schema equivalents
+  - Add `decodeApi` helper for typed validation errors (`ApiValidationError`)
+  - Remove zod dependency
+
 ## 0.1.1
 
 ### Patch Changes
